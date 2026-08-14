@@ -5,6 +5,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { movieBySlugQuery, saveProgress, formatRuntime } from "@/lib/movies";
 import { useAuth } from "@/hooks/useAuth";
+import { embedSrc } from "@/lib/media";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { WatchlistButton } from "@/components/WatchlistButton";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,8 @@ function WatchPage() {
   }
   if (!movie) throw notFound();
 
+  const embed = embedSrc(movie.embed_provider, movie.embed_url);
+
   return (
     <main className="min-h-screen bg-black pb-16">
       <div className="mx-auto max-w-[1400px] px-3 pt-4 md:px-6 md:pt-6">
@@ -91,7 +94,18 @@ function WatchPage() {
           </Link>
         </Button>
 
-        {movie.video_url ? (
+        {embed ? (
+          <div className="aspect-video w-full overflow-hidden rounded-2xl bg-black md:rounded-3xl">
+            <iframe
+              src={embed}
+              title={`${movie.title} player`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
+              className="h-full w-full border-0"
+            />
+          </div>
+        ) : movie.video_url ? (
           <VideoPlayer
             src={movie.video_url}
             type={movie.video_type}
@@ -108,6 +122,21 @@ function WatchPage() {
               <p className="mt-1 text-xs text-muted-foreground">
                 An administrator has not added a licensed streaming URL for this title yet.
               </p>
+              {movie.where_to_watch.length > 0 && (
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  {movie.where_to_watch.map((link) => (
+                    <a
+                      key={link.url}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-surface-2"
+                    >
+                      Watch on {link.name}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

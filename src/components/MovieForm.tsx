@@ -5,6 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { EMBED_PROVIDERS, embedSrc, type WhereToWatchLink } from "@/lib/media";
+import { MediaUploadField } from "@/components/MediaUploadField";
+import { WhereToWatchEditor } from "@/components/WhereToWatchEditor";
 import {
   QUALITIES,
   VIDEO_TYPES,
@@ -42,6 +45,9 @@ type FormState = {
   subtitle_url: string;
   trailer_url: string;
   quality: string;
+  embed_url: string;
+  embed_provider: string;
+  where_to_watch: WhereToWatchLink[];
   is_published: boolean;
   is_featured: boolean;
   is_trending: boolean;
@@ -65,6 +71,9 @@ function toForm(movie?: Movie | null): FormState {
     subtitle_url: movie?.subtitle_url ?? "",
     trailer_url: movie?.trailer_url ?? "",
     quality: movie?.quality ?? "1080p",
+    embed_url: movie?.embed_url ?? "",
+    embed_provider: movie?.embed_provider ?? "",
+    where_to_watch: movie?.where_to_watch ?? [],
     is_published: movie?.is_published ?? false,
     is_featured: movie?.is_featured ?? false,
     is_trending: movie?.is_trending ?? false,
@@ -80,7 +89,6 @@ const PUBLISH_REQUIRED: { key: keyof FormState; label: string }[] = [
   { key: "runtime", label: "Runtime" },
   { key: "poster_url", label: "Poster" },
   { key: "backdrop_url", label: "Backdrop" },
-  { key: "video_url", label: "Authorized video URL" },
 ];
 
 export function MovieForm({ movie }: { movie?: Movie | null }) {
@@ -104,9 +112,16 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
           next[field.key] = `${field.label} is required before publishing.`;
         }
       }
+      if (!form.video_url.trim() && !form.embed_url.trim()) {
+        next['video_url'] = "Add an authorized video source or an embed URL before publishing.";
+      }
       if (form.video_type === "hls" && form.video_url && !form.video_url.includes(".m3u8")) {
         next['video_url'] = "HLS sources should point to an .m3u8 playlist.";
       }
+    }
+    if (form.embed_url.trim() && !embedSrc(form.embed_provider, form.embed_url)) {
+      next['embed_url'] =
+        "Enter a YouTube, Vimeo or Cloudflare Stream URL and pick the matching provider.";
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -134,6 +149,9 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
         subtitle_url: form.subtitle_url.trim() || null,
         trailer_url: form.trailer_url.trim() || null,
         quality: form.quality,
+        embed_url: form.embed_url.trim() || null,
+        embed_provider: form.embed_url.trim() ? form.embed_provider || null : null,
+        where_to_watch: form.where_to_watch.filter((link) => link.name && link.url),
         is_published: form.is_published,
         is_featured: form.is_featured,
         is_trending: form.is_trending,
@@ -262,12 +280,15 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
 
       <Section title="Artwork" description="Poster and backdrop image URLs from your CDN or storage.">
         <Field label="Poster URL" error={errors['poster_url']}>
-          <Input
+          <MediaUploadField
             value={form.poster_url}
-            onChange={(event) => set("poster_url", event.target.value)}
+            onChange={(value) => set("poster_url", value)}
             placeholder="https://cdn.example.com/poster.jpg"
+            accept="image/*"
+            folder="posters"
+            kind="image"
           />
-          {form.poster_url && (
+          {form.poster_url.startsWith("http") && (
             <img
               src={form.poster_url}
               alt=""
@@ -277,12 +298,15 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
         </Field>
 
         <Field label="Backdrop URL" error={errors['backdrop_url']}>
-          <Input
+          <MediaUploadField
             value={form.backdrop_url}
-            onChange={(event) => set("backdrop_url", event.target.value)}
+            onChange={(value) => set("backdrop_url", value)}
             placeholder="https://cdn.example.com/backdrop.jpg"
+            accept="image/*"
+            folder="backdrops"
+            kind="image"
           />
-          {form.backdrop_url && (
+          {form.backdrop_url.startsWith("http") && (
             <img
               src={form.backdrop_url}
               alt=""
@@ -297,10 +321,13 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
         description="Metadata lives here; the video itself stays on your authorized video host or CDN."
       >
         <Field label="Authorized video URL" error={errors['video_url']} className="md:col-span-2">
-          <Input
+          <MediaUploadField
             value={form.video_url}
-            onChange={(event) => set("video_url", event.target.value)}
+            onChange={(value) => set("video_url", value)}
             placeholder="https://stream.example.com/title/master.m3u8"
+            accept="video/*"
+            folder="videos"
+            kind="video"
           />
         </Field>
 
@@ -335,10 +362,13 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
         </Field>
 
         <Field label="Subtitle URL (.vtt)">
-          <Input
+          <MediaUploadField
             value={form.subtitle_url}
-            onChange={(event) => set("subtitle_url", event.target.value)}
+            onChange={(value) => set("subtitle_url", value)}
             placeholder="https://cdn.example.com/subs/en.vtt"
+            accept=".vtt,text/vtt"
+            folder="subtitles"
+            kind="subtitle"
           />
         </Field>
 
@@ -349,6 +379,53 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
             placeholder="https://cdn.example.com/trailer.mp4"
           />
         </Field>
+      </Section>
+
+      <Section
+        title="Authorized embed"
+        description="For platforms that officially allow embedding. Used when no direct file source exists."
+      >
+        <Field label="Embed provider">
+          <Select
+            value={form.embed_provider}
+            onValueChange={(value) => set("embed_provider", value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a provider" />
+            </SelectTrigger>
+            <SelectContent>
+              {EMBED_PROVIDERS.map((provider) => (
+                <SelectItem key={provider.value} value={provider.value}>
+                  {provider.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field
+          label="Embed URL"
+          error={errors['embed_url']}
+          hint="YouTube, Vimeo or Cloudflare Stream link"
+        >
+          <Input
+            value={form.embed_url}
+            onChange={(event) => set("embed_url", event.target.value)}
+            placeholder="https://www.youtube.com/watch?v=aqz-KE-bpKQ"
+          />
+        </Field>
+      </Section>
+
+      <Section
+        title="Where to watch"
+        description="Official service links shown to viewers when you do not host the film yourself."
+      >
+        <div className="md:col-span-2">
+          <WhereToWatchEditor
+            links={form.where_to_watch}
+            onChange={(links) => set("where_to_watch", links)}
+          />
+        </div>
       </Section>
 
       <Section title="Publishing" description="Drafts stay hidden from viewers until published.">

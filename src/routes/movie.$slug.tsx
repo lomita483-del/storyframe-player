@@ -6,6 +6,7 @@ import { movieBySlugQuery, publishedMoviesQuery, formatRuntime } from "@/lib/mov
 import { Button } from "@/components/ui/button";
 import { WatchlistButton } from "@/components/WatchlistButton";
 import { MovieRow } from "@/components/MovieRow";
+import { ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/movie/$slug")({
@@ -151,6 +152,29 @@ function MovieDetails() {
                   </Button>
                 )}
               </div>
+
+              {movie.where_to_watch.length > 0 && (
+                <div className="mt-8">
+                  <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Where to watch
+                  </h2>
+                  <ul className="mt-3 flex flex-wrap gap-2">
+                    {movie.where_to_watch.map((link) => (
+                      <li key={link.url}>
+                        <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface/60 px-3.5 py-2 text-xs font-semibold transition-colors hover:bg-surface-2"
+                        >
+                          {link.name}
+                          <ExternalLink className="size-3.5" />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <dl className="mt-9 grid gap-5 rounded-2xl border border-border bg-surface/60 p-5 sm:grid-cols-2">
                 <Detail label="Director" value={movie.director ?? "—"} />
