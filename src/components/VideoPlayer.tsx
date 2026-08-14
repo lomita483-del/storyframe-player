@@ -233,7 +233,6 @@ export function VideoPlayer({
         poster={poster}
         playsInline
         controls={false}
-        crossOrigin="anonymous"
         className="h-full w-full bg-black"
         onClick={togglePlay}
         onLoadedMetadata={(event) => {
@@ -258,7 +257,14 @@ export function VideoPlayer({
           setVolume(event.currentTarget.volume);
           setMuted(event.currentTarget.muted);
         }}
-        onError={() => setError("This video source could not be played.")}
+        onError={(event) => {
+          const code = event.currentTarget.error?.code;
+          setError(
+            code === MediaError.MEDIA_ERR_NETWORK
+              ? "The video host interrupted the connection. Try again."
+              : "This video source could not be played.",
+          );
+        }}
       >
         {subtitleUrl && (
           <track kind="subtitles" src={subtitleUrl} srcLang="en" label="English" default={false} />
