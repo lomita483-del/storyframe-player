@@ -190,7 +190,73 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
 
   return (
     <form onSubmit={submit} className="space-y-6">
+      <Section
+        title="Streaming"
+        description="Metadata lives here; the video itself stays on your authorized video host or CDN."
+      >
+        <Field label="Authorized video URL" error={errors['video_url']} className="md:col-span-2">
+          <MediaUploadField
+            value={form.video_url}
+            onChange={(value) => set("video_url", value)}
+            placeholder="https://stream.example.com/title/master.m3u8"
+            accept="video/*"
+            folder="videos"
+            kind="video"
+          />
+        </Field>
+
+        <Field label="Streaming format">
+          <Select value={form.video_type} onValueChange={(value) => set("video_type", value)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {VIDEO_TYPES.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label="Quality label">
+          <Select value={form.quality} onValueChange={(value) => set("quality", value)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {QUALITIES.map((quality) => (
+                <SelectItem key={quality} value={quality}>
+                  {quality}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label="Subtitle URL (.vtt)">
+          <MediaUploadField
+            value={form.subtitle_url}
+            onChange={(value) => set("subtitle_url", value)}
+            placeholder="https://cdn.example.com/subs/en.vtt"
+            accept=".vtt,text/vtt"
+            folder="subtitles"
+            kind="subtitle"
+          />
+        </Field>
+
+        <Field label="Trailer URL">
+          <Input
+            value={form.trailer_url}
+            onChange={(event) => set("trailer_url", event.target.value)}
+            placeholder="https://cdn.example.com/trailer.mp4"
+          />
+        </Field>
+      </Section>
+
       <Section title="Movie information" description="The core metadata viewers will see.">
+
         <Field label="Title" error={errors['title']} className="md:col-span-2">
           <Input
             value={form.title}
@@ -316,70 +382,6 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
         </Field>
       </Section>
 
-      <Section
-        title="Streaming"
-        description="Metadata lives here; the video itself stays on your authorized video host or CDN."
-      >
-        <Field label="Authorized video URL" error={errors['video_url']} className="md:col-span-2">
-          <MediaUploadField
-            value={form.video_url}
-            onChange={(value) => set("video_url", value)}
-            placeholder="https://stream.example.com/title/master.m3u8"
-            accept="video/*"
-            folder="videos"
-            kind="video"
-          />
-        </Field>
-
-        <Field label="Streaming format">
-          <Select value={form.video_type} onValueChange={(value) => set("video_type", value)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {VIDEO_TYPES.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <Field label="Quality label">
-          <Select value={form.quality} onValueChange={(value) => set("quality", value)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {QUALITIES.map((quality) => (
-                <SelectItem key={quality} value={quality}>
-                  {quality}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <Field label="Subtitle URL (.vtt)">
-          <MediaUploadField
-            value={form.subtitle_url}
-            onChange={(value) => set("subtitle_url", value)}
-            placeholder="https://cdn.example.com/subs/en.vtt"
-            accept=".vtt,text/vtt"
-            folder="subtitles"
-            kind="subtitle"
-          />
-        </Field>
-
-        <Field label="Trailer URL">
-          <Input
-            value={form.trailer_url}
-            onChange={(event) => set("trailer_url", event.target.value)}
-            placeholder="https://cdn.example.com/trailer.mp4"
-          />
-        </Field>
-      </Section>
 
       <Section
         title="Authorized embed"
