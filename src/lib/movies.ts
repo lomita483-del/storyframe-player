@@ -15,6 +15,8 @@ export type Movie = {
   trailer_url: string | null;
   embed_url: string | null;
   embed_provider: string | null;
+  provider: string | null;
+  provider_asset_id: string | null;
   where_to_watch: WhereToWatchLink[];
   genre: string | null;
   release_year: number | null;
