@@ -1,7 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 import { publishedMoviesQuery, watchHistoryQuery, type Movie } from "@/lib/movies";
+import { autoSyncCatalogue } from "@/lib/tmdb.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { Hero } from "@/components/Hero";
 import { MovieRow } from "@/components/MovieRow";
@@ -10,42 +13,77 @@ import { MovieCard } from "@/components/MovieCard";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Lumen — Stream Licensed Films in Cinematic Quality" },
+      { title: "Lumen — Stream Movies & TV Shows in Cinematic Quality" },
       {
         name: "description",
         content:
-          "Browse trending, latest and popular titles on Lumen, then watch instantly in a premium built-in player with resume, subtitles and quality control.",
+          "Browse an automatically updated catalogue of movies, TV shows and series on Lumen — trending, latest and top rated, with seasons, episodes and where to watch.",
       },
-      { property: "og:title", content: "Lumen — Stream Licensed Films in Cinematic Quality" },
+      { property: "og:title", content: "Lumen — Stream Movies & TV Shows in Cinematic Quality" },
       {
         property: "og:description",
-        content: "A premium cinematic streaming experience: browse, search and watch licensed films.",
+        content:
+          "An always-fresh catalogue of movies and TV series: browse, search, track episodes and watch.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Home,
 });
 
+/** Keeps the catalogue up to date automatically on first visit of the day. */
+function useAutoSync(hasTitles: boolean, ready: boolean) {
+  const sync = useServerFn(autoSyncCatalogue);
+  const queryClient = useQueryClient();
+  const [syncing, setSyncing] = useState(false);
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (!ready || started.current) return;
+    started.current = true;
+    if (!hasTitles) setSyncing(true);
+    void sync()
+      .then((result) => {
+        if (result && (result.inserted > 0 || result.updated > 0)) {
+          void queryClient.invalidateQueries({ queryKey: ["movies"] });
+        }
+      })
+      .finally(() => setSyncing(false));
+  }, [ready, hasTitles, sync, queryClient]);
+
+  return syncing;
+}
+
 function Home() {
   const { user } = useAuth();
   const { data: movies, isLoading } = useQuery(publishedMoviesQuery());
   const { data: history } = useQuery(watchHistoryQuery(user?.id));
+  const list = movies ?? [];
+  const syncing = useAutoSync(list.length > 0, !isLoading);
 
-  if (isLoading) {
+  if (isLoading || (syncing && !list.length)) {
     return (
       <div className="grid min-h-screen place-items-center">
-        <Loader2 className="size-7 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="mx-auto size-7 animate-spin text-primary" />
+          {syncing && (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Loading movies and TV shows…
+            </p>
+          )}
+        </div>
       </div>
     );
   }
 
-  const list = movies ?? [];
   if (!list.length) {
     return (
       <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center px-6 text-center">
-        <h1 className="text-3xl font-bold">No titles published yet</h1>
+        <h1 className="text-3xl font-bold">Catalogue is empty</h1>
         <p className="mt-3 text-sm text-muted-foreground">
-          Once an administrator publishes a movie it will appear here instantly.
+          The automatic import could not reach the metadata provider. Check that the catalogue key is
+          valid, or add a title manually.
         </p>
         <Link
           to="/admin"
