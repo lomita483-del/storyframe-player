@@ -194,12 +194,14 @@ export const watchlistQuery = (userId?: string) =>
         .select(`id,movie_id,created_at,movies(${MOVIE_FIELDS})`)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as {
+      const rows = (data ?? []) as unknown as {
         id: string;
         movie_id: string;
         created_at: string;
         movies: Movie | null;
       }[];
+      const movies = await hydrate(rows.map((row) => row.movies).filter(Boolean));
+      return rows.map((row, index) => ({ ...row, movies: movies[index] ?? row.movies }));
     },
   });
 
@@ -215,7 +217,9 @@ export const watchHistoryQuery = (userId?: string) =>
         )
         .order("updated_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as (WatchHistoryRow & { movies: Movie | null })[];
+      const rows = (data ?? []) as unknown as (WatchHistoryRow & { movies: Movie | null })[];
+      const movies = await hydrate(rows.map((row) => row.movies).filter(Boolean));
+      return rows.map((row, index) => ({ ...row, movies: movies[index] ?? row.movies }));
     },
   });
 
