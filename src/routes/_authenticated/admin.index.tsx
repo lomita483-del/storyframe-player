@@ -169,6 +169,11 @@ function AdminMovies() {
             )}
             Fill trailers
           </Button>
+          <Button asChild variant="secondary" className="rounded-full">
+            <Link to="/admin/providers">
+              <CloudCog className="size-4" /> Providers
+            </Link>
+          </Button>
           <Button asChild className="rounded-full">
             <Link to="/admin/new">
               <Plus className="size-4" /> Add title
