@@ -200,8 +200,72 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
     mutation.mutate();
   }
 
+  const activeProvider = VIDEO_PROVIDERS.find((entry) => entry.value === form.provider);
+  const providerConfig = form.provider ? providerSettings?.[form.provider]?.config ?? {} : {};
+  const generated = buildPlaybackUrl(form.provider, form.provider_asset_id, providerConfig);
+
+  function applyProviderUrl() {
+    if (!generated) {
+      toast.error("Connect this provider under Providers and add an asset ID first.");
+      return;
+    }
+    set("video_url", generated.url);
+    set("video_type", generated.type);
+    toast.success("Authorized playback URL applied");
+  }
+
   return (
     <form onSubmit={submit} className="space-y-6">
+      <Section
+        title="Licensed provider"
+        description="Pick the licensed CDN hosting this title and paste its asset ID — the authorized HLS URL is generated for you."
+      >
+        <Field label="Provider">
+          <Select
+            value={form.provider || "none"}
+            onValueChange={(value) => set("provider", value === "none" ? "" : value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a provider" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No provider (direct URL)</SelectItem>
+              {VIDEO_PROVIDERS.map((provider) => (
+                <SelectItem key={provider.value} value={provider.value}>
+                  {provider.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label={activeProvider?.assetLabel ?? "Asset ID"}>
+          <Input
+            value={form.provider_asset_id}
+            onChange={(event) => set("provider_asset_id", event.target.value)}
+            placeholder={activeProvider?.assetLabel ?? "Provider asset ID"}
+            disabled={!form.provider}
+          />
+        </Field>
+
+        <div className="md:col-span-2 space-y-2">
+          <p className="break-all text-xs text-muted-foreground">
+            {generated
+              ? generated.url
+              : "Generated playback URL appears here once the provider is connected."}
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            className="rounded-full"
+            onClick={applyProviderUrl}
+            disabled={!generated}
+          >
+            Use this playback URL
+          </Button>
+        </div>
+      </Section>
+
       <Section
         title="Streaming"
         description="Metadata lives here; the video itself stays on your authorized video host or CDN."
