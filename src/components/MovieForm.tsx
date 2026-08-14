@@ -161,6 +161,8 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
         quality: form.quality,
         embed_url: form.embed_url.trim() || null,
         embed_provider: form.embed_url.trim() ? form.embed_provider || null : null,
+        provider: form.provider || null,
+        provider_asset_id: form.provider_asset_id.trim() || null,
         where_to_watch: form.where_to_watch.filter((link) => link.name && link.url),
         is_published: form.is_published,
         is_featured: form.is_featured,
