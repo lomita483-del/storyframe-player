@@ -132,6 +132,13 @@ function Home() {
             progressById={progressById}
           />
         )}
+        {list.filter((m) => m.video_url || m.embed_url).length > 0 && (
+          <MovieRow
+            title="Playable now"
+            subtitle="Titles with a licensed stream or authorized embed"
+            movies={list.filter((m) => m.video_url || m.embed_url)}
+          />
+        )}
         <MovieRow title="Trending now" subtitle="What people are watching" movies={trending} />
         <MovieRow title="TV shows & series" subtitle="Binge by season" movies={shows} />
         <MovieRow title="Movies" subtitle="Feature films" movies={films} />

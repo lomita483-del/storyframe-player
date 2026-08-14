@@ -12,9 +12,13 @@ import {
   Film,
   RefreshCw,
   Tv,
+  Download,
+  Youtube,
+  PlayCircle,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { syncCatalogueNow } from "@/lib/tmdb.functions";
+import { importPublicDomain, fillTrailers } from "@/lib/library.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { adminMoviesQuery, type Movie } from "@/lib/movies";
@@ -53,6 +57,35 @@ function AdminMovies() {
     onError: (error: { message?: string }) =>
       toast.error(error?.message ?? "Catalogue sync failed"),
   });
+
+  const runImport = useServerFn(importPublicDomain);
+  const publicDomain = useMutation({
+    mutationFn: () => runImport(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["movies"] });
+      toast.success(
+        result.inserted
+          ? `${result.inserted} public-domain films added — these play in the app`
+          : "No new public-domain films found",
+      );
+    },
+    onError: (error: { message?: string }) => toast.error(error?.message ?? "Import failed"),
+  });
+
+  const runTrailers = useServerFn(fillTrailers);
+  const trailers = useMutation({
+    mutationFn: () => runTrailers(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["movies"] });
+      toast.success(
+        result.updated
+          ? `${result.updated} titles now play their official trailer`
+          : "No new trailers found",
+      );
+    },
+    onError: (error: { message?: string }) => toast.error(error?.message ?? "Trailer fill failed"),
+  });
+
   const { data: movies, isLoading } = useQuery(adminMoviesQuery());
 
   const flags = useMutation({
@@ -81,18 +114,20 @@ function AdminMovies() {
 
   const list = movies ?? [];
   const published = list.filter((m) => m.is_published).length;
+  const playable = list.filter((m) => m.video_url || m.embed_url).length;
 
   return (
     <main className="pb-24">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Titles" value={list.length} icon={<Film className="size-4" />} />
         <Stat label="Published" value={published} icon={<Eye className="size-4" />} />
         <Stat label="Drafts" value={list.length - published} icon={<EyeOff className="size-4" />} />
+        <Stat label="Playable" value={playable} icon={<PlayCircle className="size-4" />} />
       </div>
 
-      <div className="mt-8 flex items-center justify-between gap-3">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold md:text-2xl">Catalogue</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="secondary"
             className="rounded-full"
@@ -106,6 +141,34 @@ function AdminMovies() {
             )}
             Sync now
           </Button>
+          <Button
+            variant="secondary"
+            className="rounded-full"
+            onClick={() => publicDomain.mutate()}
+            disabled={publicDomain.isPending}
+            title="Import public-domain films with real playable video files"
+          >
+            {publicDomain.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Download className="size-4" />
+            )}
+            Import public-domain films
+          </Button>
+          <Button
+            variant="secondary"
+            className="rounded-full"
+            onClick={() => trailers.mutate()}
+            disabled={trailers.isPending}
+            title="Attach official YouTube trailers to titles with no playable source"
+          >
+            {trailers.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Youtube className="size-4" />
+            )}
+            Fill trailers
+          </Button>
           <Button asChild className="rounded-full">
             <Link to="/admin/new">
               <Plus className="size-4" /> Add title
@@ -113,6 +176,7 @@ function AdminMovies() {
           </Button>
         </div>
       </div>
+
 
       {isLoading ? (
         <div className="grid min-h-[30svh] place-items-center">
