@@ -96,6 +96,8 @@ function Home() {
   }
 
   const featured = list.find((m) => m.is_featured) ?? list[0]!;
+  const films = list.filter((m) => m.media_type !== "tv");
+  const shows = list.filter((m) => m.media_type === "tv");
   const trending = list.filter((m) => m.is_trending);
   const latest = [...list].sort(
     (a, b) => (b.release_year ?? 0) - (a.release_year ?? 0),
@@ -131,8 +133,10 @@ function Home() {
           />
         )}
         <MovieRow title="Trending now" subtitle="What people are watching" movies={trending} />
+        <MovieRow title="TV shows & series" subtitle="Binge by season" movies={shows} />
+        <MovieRow title="Movies" subtitle="Feature films" movies={films} />
         <MovieRow title="Latest releases" movies={latest} />
-        <MovieRow title="Popular on Lumen" subtitle="Highest rated titles" movies={popular} />
+        <MovieRow title="Top rated on Lumen" subtitle="Highest rated titles" movies={popular} />
 
         {genres.map((genre) => (
           <MovieRow key={genre} title={genre} movies={byGenre(genre)} />
