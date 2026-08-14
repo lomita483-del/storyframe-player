@@ -359,3 +359,52 @@ async function syncSeasons(
     }
   }
 }
+
+/* --------------------- bulk trailer backfill (playable) --------------------- */
+
+/**
+ * Fills the authorized embed field with the official YouTube trailer for
+ * imported titles that have no playable source yet, so every title has
+ * something to play legally.
+ */
+export async function backfillTrailers(limit = 40) {
+  const { data: rows, error } = await supabaseAdmin
+    .from("movies")
+    .select("id,tmdb_id,media_type")
+    .not("tmdb_id", "is", null)
+    .is("embed_url", null)
+    .is("video_url", null)
+    .order("popularity", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+
+  let updated = 0;
+
+  for (const row of rows ?? []) {
+    const kind = row.media_type === "tv" ? "tv" : "movie";
+    try {
+      const videos = await tmdb<Videos>(`/${kind}/${row.tmdb_id}/videos`);
+      const list = videos.results ?? [];
+      const pick =
+        list.find((v) => v.site === "YouTube" && v.type === "Trailer") ??
+        list.find((v) => v.site === "YouTube" && v.type === "Teaser") ??
+        list.find((v) => v.site === "YouTube");
+      if (!pick) continue;
+
+      const { error: updateError } = await supabaseAdmin
+        .from("movies")
+        .update({
+          embed_provider: "youtube",
+          embed_url: `https://www.youtube.com/watch?v=${pick.key}`,
+          trailer_url: `https://www.youtube.com/watch?v=${pick.key}`,
+        } as never)
+        .eq("id", row.id);
+      if (updateError) throw updateError;
+      updated += 1;
+    } catch {
+      /* skip individual failures */
+    }
+  }
+
+  return { inserted: 0, updated };
+}
