@@ -10,7 +10,11 @@ import {
   Flame,
   Loader2,
   Film,
+  RefreshCw,
+  Tv,
 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { syncCatalogueNow } from "@/lib/tmdb.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { adminMoviesQuery, type Movie } from "@/lib/movies";
@@ -34,6 +38,21 @@ export const Route = createFileRoute("/_authenticated/admin/")({
 
 function AdminMovies() {
   const queryClient = useQueryClient();
+  const runSync = useServerFn(syncCatalogueNow);
+
+  const sync = useMutation({
+    mutationFn: () => runSync(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["movies"] });
+      toast.success(
+        result.skipped
+          ? "Catalogue is already up to date"
+          : `Synced — ${result.inserted} added, ${result.updated} refreshed`,
+      );
+    },
+    onError: (error: { message?: string }) =>
+      toast.error(error?.message ?? "Catalogue sync failed"),
+  });
   const { data: movies, isLoading } = useQuery(adminMoviesQuery());
 
   const flags = useMutation({
@@ -72,12 +91,27 @@ function AdminMovies() {
       </div>
 
       <div className="mt-8 flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold md:text-2xl">Movies</h1>
-        <Button asChild className="rounded-full">
-          <Link to="/admin/new">
-            <Plus className="size-4" /> Add movie
-          </Link>
-        </Button>
+        <h1 className="text-xl font-semibold md:text-2xl">Catalogue</h1>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            className="rounded-full"
+            onClick={() => sync.mutate()}
+            disabled={sync.isPending}
+          >
+            {sync.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+            Sync now
+          </Button>
+          <Button asChild className="rounded-full">
+            <Link to="/admin/new">
+              <Plus className="size-4" /> Add title
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -107,6 +141,15 @@ function AdminMovies() {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="truncate font-semibold">{movie.title}</p>
+                  <Badge tone="accent">
+                    {movie.media_type === "tv" ? (
+                      <span className="inline-flex items-center gap-1">
+                        <Tv className="size-3" /> TV
+                      </span>
+                    ) : (
+                      "Movie"
+                    )}
+                  </Badge>
                   <Badge tone={movie.is_published ? "live" : "draft"}>
                     {movie.is_published ? "Published" : "Draft"}
                   </Badge>
