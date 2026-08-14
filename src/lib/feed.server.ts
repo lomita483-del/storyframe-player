@@ -120,7 +120,7 @@ export async function getFeedConfig(): Promise<FeedConfig> {
     .eq("provider", "licensed_feed")
     .maybeSingle();
   if (error) throw error;
-  return ((data?.config ?? {}) as FeedConfig) ?? { url: "" };
+  return (data?.config ?? { url: "" }) as FeedConfig;
 }
 
 /** Maps one feed entry onto a movies row, or null when it isn't playable. */
