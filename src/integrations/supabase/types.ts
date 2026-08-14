@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      episodes: {
+        Row: {
+          air_date: string | null
+          created_at: string
+          embed_provider: string | null
+          embed_url: string | null
+          episode_number: number
+          id: string
+          movie_id: string
+          name: string | null
+          overview: string | null
+          rating: number | null
+          runtime: number | null
+          season_id: string
+          season_number: number
+          still_url: string | null
+          subtitle_url: string | null
+          tmdb_id: number | null
+          updated_at: string
+          video_type: string
+          video_url: string | null
+        }
+        Insert: {
+          air_date?: string | null
+          created_at?: string
+          embed_provider?: string | null
+          embed_url?: string | null
+          episode_number: number
+          id?: string
+          movie_id: string
+          name?: string | null
+          overview?: string | null
+          rating?: number | null
+          runtime?: number | null
+          season_id: string
+          season_number: number
+          still_url?: string | null
+          subtitle_url?: string | null
+          tmdb_id?: number | null
+          updated_at?: string
+          video_type?: string
+          video_url?: string | null
+        }
+        Update: {
+          air_date?: string | null
+          created_at?: string
+          embed_provider?: string | null
+          embed_url?: string | null
+          episode_number?: number
+          id?: string
+          movie_id?: string
+          name?: string | null
+          overview?: string | null
+          rating?: number | null
+          runtime?: number | null
+          season_id?: string
+          season_number?: number
+          still_url?: string | null
+          subtitle_url?: string | null
+          tmdb_id?: number | null
+          updated_at?: string
+          video_type?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episodes_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episodes_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       genres: {
         Row: {
           created_at: string
@@ -45,11 +126,16 @@ export type Database = {
           director: string | null
           embed_provider: string | null
           embed_url: string | null
+          first_air_date: string | null
           genre: string | null
           id: string
           is_featured: boolean
+          is_imported: boolean
           is_published: boolean
           is_trending: boolean
+          last_synced_at: string | null
+          media_type: string
+          popularity: number | null
           poster_url: string | null
           quality: string | null
           rating: number | null
@@ -58,6 +144,7 @@ export type Database = {
           slug: string
           subtitle_url: string | null
           title: string
+          tmdb_id: number | null
           trailer_url: string | null
           updated_at: string
           video_type: string
@@ -73,11 +160,16 @@ export type Database = {
           director?: string | null
           embed_provider?: string | null
           embed_url?: string | null
+          first_air_date?: string | null
           genre?: string | null
           id?: string
           is_featured?: boolean
+          is_imported?: boolean
           is_published?: boolean
           is_trending?: boolean
+          last_synced_at?: string | null
+          media_type?: string
+          popularity?: number | null
           poster_url?: string | null
           quality?: string | null
           rating?: number | null
@@ -86,6 +178,7 @@ export type Database = {
           slug: string
           subtitle_url?: string | null
           title: string
+          tmdb_id?: number | null
           trailer_url?: string | null
           updated_at?: string
           video_type?: string
@@ -101,11 +194,16 @@ export type Database = {
           director?: string | null
           embed_provider?: string | null
           embed_url?: string | null
+          first_air_date?: string | null
           genre?: string | null
           id?: string
           is_featured?: boolean
+          is_imported?: boolean
           is_published?: boolean
           is_trending?: boolean
+          last_synced_at?: string | null
+          media_type?: string
+          popularity?: number | null
           poster_url?: string | null
           quality?: string | null
           rating?: number | null
@@ -114,6 +212,7 @@ export type Database = {
           slug?: string
           subtitle_url?: string | null
           title?: string
+          tmdb_id?: number | null
           trailer_url?: string | null
           updated_at?: string
           video_type?: string
@@ -143,6 +242,95 @@ export type Database = {
           display_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      seasons: {
+        Row: {
+          air_date: string | null
+          created_at: string
+          episode_count: number | null
+          id: string
+          movie_id: string
+          name: string | null
+          overview: string | null
+          poster_url: string | null
+          season_number: number
+          tmdb_id: number | null
+          updated_at: string
+        }
+        Insert: {
+          air_date?: string | null
+          created_at?: string
+          episode_count?: number | null
+          id?: string
+          movie_id: string
+          name?: string | null
+          overview?: string | null
+          poster_url?: string | null
+          season_number: number
+          tmdb_id?: number | null
+          updated_at?: string
+        }
+        Update: {
+          air_date?: string | null
+          created_at?: string
+          episode_count?: number | null
+          id?: string
+          movie_id?: string
+          name?: string | null
+          overview?: string | null
+          poster_url?: string | null
+          season_number?: number
+          tmdb_id?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seasons_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sync_runs: {
+        Row: {
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          inserted_count: number
+          source: string
+          started_at: string
+          status: string
+          updated_at: string
+          updated_count: number
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          inserted_count?: number
+          source?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+          updated_count?: number
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          inserted_count?: number
+          source?: string
+          started_at?: string
+          status?: string
+          updated_at?: string
+          updated_count?: number
         }
         Relationships: []
       }
