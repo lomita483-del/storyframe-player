@@ -130,6 +130,21 @@ export function embedSrc(provider?: string | null, url?: string | null) {
   return null;
 }
 
+/** Use Internet Archive's official player for imported public-domain films. */
+export function archiveEmbedSrc(url?: string | null) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== "archive.org" && !parsed.hostname.endsWith(".archive.org")) return null;
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const downloadIndex = parts.indexOf("download");
+    const identifier = downloadIndex >= 0 ? parts[downloadIndex + 1] : null;
+    return identifier ? `https://archive.org/embed/${encodeURIComponent(identifier)}` : null;
+  } catch {
+    return null;
+  }
+}
+
 export function parseWhereToWatch(value: unknown): WhereToWatchLink[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
