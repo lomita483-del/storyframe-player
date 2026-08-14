@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { hydrateMediaRefs, parseWhereToWatch, type WhereToWatchLink } from "@/lib/media";
 
 export type Movie = {
   id: string;
@@ -12,6 +13,9 @@ export type Movie = {
   video_type: string;
   subtitle_url: string | null;
   trailer_url: string | null;
+  embed_url: string | null;
+  embed_provider: string | null;
+  where_to_watch: WhereToWatchLink[];
   genre: string | null;
   release_year: number | null;
   runtime: number | null;
@@ -36,7 +40,21 @@ export type WatchHistoryRow = {
 };
 
 const MOVIE_FIELDS =
-  'id,title,slug,description,poster_url,backdrop_url,video_url,video_type,subtitle_url,trailer_url,genre,release_year,runtime,rating,quality,"cast",director,is_published,is_featured,is_trending,created_at,updated_at';
+  'id,title,slug,description,poster_url,backdrop_url,video_url,video_type,subtitle_url,trailer_url,embed_url,embed_provider,where_to_watch,genre,release_year,runtime,rating,quality,"cast",director,is_published,is_featured,is_trending,created_at,updated_at';
+
+async function hydrate(rows: unknown): Promise<Movie[]> {
+  const list = ((rows ?? []) as Movie[]).map((row) => ({
+    ...row,
+    where_to_watch: parseWhereToWatch((row as { where_to_watch?: unknown }).where_to_watch),
+  }));
+  return hydrateMediaRefs(list);
+}
+
+async function hydrateOne(row: unknown): Promise<Movie | null> {
+  if (!row) return null;
+  const [first] = await hydrate([row]);
+  return first ?? null;
+}
 
 export const VIDEO_TYPES = [
   { value: "hls", label: "HLS (.m3u8)" },
@@ -74,7 +92,7 @@ export const publishedMoviesQuery = () =>
         .eq("is_published", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as Movie[];
+      return hydrate(data);
     },
   });
 
@@ -88,7 +106,7 @@ export const movieBySlugQuery = (slug: string) =>
         .eq("slug", slug)
         .maybeSingle();
       if (error) throw error;
-      return (data ?? null) as unknown as Movie | null;
+      return hydrateOne(data);
     },
   });
 
@@ -130,7 +148,7 @@ export const searchMoviesQuery = (term: string) =>
       ]) {
         merged.set(row.id, row);
       }
-      return [...merged.values()];
+      return hydrate([...merged.values()]);
     },
 
   });
@@ -146,7 +164,7 @@ export const adminMoviesQuery = () =>
         .select(MOVIE_FIELDS)
         .order("updated_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as unknown as Movie[];
+      return hydrate(data);
     },
   });
 
@@ -160,7 +178,7 @@ export const adminMovieByIdQuery = (id: string) =>
         .eq("id", id)
         .maybeSingle();
       if (error) throw error;
-      return (data ?? null) as unknown as Movie | null;
+      return hydrateOne(data);
     },
   });
 
