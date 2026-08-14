@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   movie: Movie;
-  className?: string;
-  progressPercent?: number;
+  className?: string | undefined;
+  progressPercent?: number | undefined;
 };
 
 export function MovieCard({ movie, className, progressPercent }: Props) {

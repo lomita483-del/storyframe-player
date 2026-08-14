@@ -3,9 +3,9 @@ import { MovieCard } from "./MovieCard";
 
 type Props = {
   title: string;
-  subtitle?: string;
+  subtitle?: string | undefined;
   movies: Movie[];
-  progressById?: Record<string, number>;
+  progressById?: Record<string, number> | undefined;
 };
 
 export function MovieRow({ title, subtitle, movies, progressById }: Props) {
@@ -23,7 +23,7 @@ export function MovieRow({ title, subtitle, movies, progressById }: Props) {
           <MovieCard
             key={movie.id}
             movie={movie}
-            progressPercent={progressById?.[movie.id]}
+            {...(progressById?.[movie.id] != null ? { progressPercent: progressById[movie.id] } : {})}
           />
         ))}
       </div>
