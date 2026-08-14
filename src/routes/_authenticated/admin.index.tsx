@@ -57,6 +57,35 @@ function AdminMovies() {
     onError: (error: { message?: string }) =>
       toast.error(error?.message ?? "Catalogue sync failed"),
   });
+
+  const runImport = useServerFn(importPublicDomain);
+  const publicDomain = useMutation({
+    mutationFn: () => runImport(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["movies"] });
+      toast.success(
+        result.inserted
+          ? `${result.inserted} public-domain films added — these play in the app`
+          : "No new public-domain films found",
+      );
+    },
+    onError: (error: { message?: string }) => toast.error(error?.message ?? "Import failed"),
+  });
+
+  const runTrailers = useServerFn(fillTrailers);
+  const trailers = useMutation({
+    mutationFn: () => runTrailers(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["movies"] });
+      toast.success(
+        result.updated
+          ? `${result.updated} titles now play their official trailer`
+          : "No new trailers found",
+      );
+    },
+    onError: (error: { message?: string }) => toast.error(error?.message ?? "Trailer fill failed"),
+  });
+
   const { data: movies, isLoading } = useQuery(adminMoviesQuery());
 
   const flags = useMutation({
