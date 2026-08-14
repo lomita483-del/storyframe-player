@@ -6,6 +6,11 @@ import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { EMBED_PROVIDERS, embedSrc, type WhereToWatchLink } from "@/lib/media";
+import {
+  VIDEO_PROVIDERS,
+  buildPlaybackUrl,
+  providerSettingsQuery,
+} from "@/lib/providers";
 import { MediaUploadField } from "@/components/MediaUploadField";
 import { WhereToWatchEditor } from "@/components/WhereToWatchEditor";
 import {
