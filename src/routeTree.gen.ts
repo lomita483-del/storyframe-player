@@ -13,10 +13,21 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as SearchRouteImport } from './routes/search'
+import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedWatchlistRouteImport } from './routes/_authenticated/watchlist'
 import { Route as MovieSlugRouteImport } from './routes/movie.$slug'
 import { Route as WatchSlugRouteImport } from './routes/watch.$slug'
+import { Route as AuthenticatedAccountIndexRouteImport } from './routes/_authenticated/account.index'
+import { Route as AuthenticatedAccountActivityRouteImport } from './routes/_authenticated/account.activity'
+import { Route as AuthenticatedAccountDownloadsRouteImport } from './routes/_authenticated/account.downloads'
+import { Route as AuthenticatedAccountFeedbackRouteImport } from './routes/_authenticated/account.feedback'
+import { Route as AuthenticatedAccountHistoryRouteImport } from './routes/_authenticated/account.history'
+import { Route as AuthenticatedAccountMessagesRouteImport } from './routes/_authenticated/account.messages'
+import { Route as AuthenticatedAccountPremiumRouteImport } from './routes/_authenticated/account.premium'
+import { Route as AuthenticatedAccountProfileRouteImport } from './routes/_authenticated/account.profile'
+import { Route as AuthenticatedAccountRewardsRouteImport } from './routes/_authenticated/account.rewards'
+import { Route as AuthenticatedAccountSettingsRouteImport } from './routes/_authenticated/account.settings'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminIdRouteImport } from './routes/_authenticated/admin.$id'
 import { Route as AuthenticatedAdminNewRouteImport } from './routes/_authenticated/admin.new'
@@ -41,6 +52,11 @@ const SearchRoute = SearchRouteImport.update({
   path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
@@ -61,6 +77,66 @@ const WatchSlugRoute = WatchSlugRouteImport.update({
   path: '/watch/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAccountIndexRoute =
+  AuthenticatedAccountIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
+const AuthenticatedAccountActivityRoute =
+  AuthenticatedAccountActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
+const AuthenticatedAccountDownloadsRoute =
+  AuthenticatedAccountDownloadsRouteImport.update({
+    id: '/downloads',
+    path: '/downloads',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
+const AuthenticatedAccountFeedbackRoute =
+  AuthenticatedAccountFeedbackRouteImport.update({
+    id: '/feedback',
+    path: '/feedback',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
+const AuthenticatedAccountHistoryRoute =
+  AuthenticatedAccountHistoryRouteImport.update({
+    id: '/history',
+    path: '/history',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
+const AuthenticatedAccountMessagesRoute =
+  AuthenticatedAccountMessagesRouteImport.update({
+    id: '/messages',
+    path: '/messages',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
+const AuthenticatedAccountPremiumRoute =
+  AuthenticatedAccountPremiumRouteImport.update({
+    id: '/premium',
+    path: '/premium',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
+const AuthenticatedAccountProfileRoute =
+  AuthenticatedAccountProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
+const AuthenticatedAccountRewardsRoute =
+  AuthenticatedAccountRewardsRouteImport.update({
+    id: '/rewards',
+    path: '/rewards',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
+const AuthenticatedAccountSettingsRoute =
+  AuthenticatedAccountSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -87,13 +163,24 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/search': typeof SearchRoute
+  '/account': typeof AuthenticatedAccountRouteWithChildren
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/watchlist': typeof AuthenticatedWatchlistRoute
   '/movie/$slug': typeof MovieSlugRoute
   '/watch/$slug': typeof WatchSlugRoute
+  '/account/activity': typeof AuthenticatedAccountActivityRoute
+  '/account/downloads': typeof AuthenticatedAccountDownloadsRoute
+  '/account/feedback': typeof AuthenticatedAccountFeedbackRoute
+  '/account/history': typeof AuthenticatedAccountHistoryRoute
+  '/account/messages': typeof AuthenticatedAccountMessagesRoute
+  '/account/premium': typeof AuthenticatedAccountPremiumRoute
+  '/account/profile': typeof AuthenticatedAccountProfileRoute
+  '/account/rewards': typeof AuthenticatedAccountRewardsRoute
+  '/account/settings': typeof AuthenticatedAccountSettingsRoute
   '/admin/$id': typeof AuthenticatedAdminIdRoute
   '/admin/new': typeof AuthenticatedAdminNewRoute
   '/admin/providers': typeof AuthenticatedAdminProvidersRoute
+  '/account/': typeof AuthenticatedAccountIndexRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -103,9 +190,19 @@ export interface FileRoutesByTo {
   '/watchlist': typeof AuthenticatedWatchlistRoute
   '/movie/$slug': typeof MovieSlugRoute
   '/watch/$slug': typeof WatchSlugRoute
+  '/account/activity': typeof AuthenticatedAccountActivityRoute
+  '/account/downloads': typeof AuthenticatedAccountDownloadsRoute
+  '/account/feedback': typeof AuthenticatedAccountFeedbackRoute
+  '/account/history': typeof AuthenticatedAccountHistoryRoute
+  '/account/messages': typeof AuthenticatedAccountMessagesRoute
+  '/account/premium': typeof AuthenticatedAccountPremiumRoute
+  '/account/profile': typeof AuthenticatedAccountProfileRoute
+  '/account/rewards': typeof AuthenticatedAccountRewardsRoute
+  '/account/settings': typeof AuthenticatedAccountSettingsRoute
   '/admin/$id': typeof AuthenticatedAdminIdRoute
   '/admin/new': typeof AuthenticatedAdminNewRoute
   '/admin/providers': typeof AuthenticatedAdminProvidersRoute
+  '/account': typeof AuthenticatedAccountIndexRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -114,13 +211,24 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/search': typeof SearchRoute
+  '/_authenticated/account': typeof AuthenticatedAccountRouteWithChildren
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/watchlist': typeof AuthenticatedWatchlistRoute
   '/movie/$slug': typeof MovieSlugRoute
   '/watch/$slug': typeof WatchSlugRoute
+  '/_authenticated/account/activity': typeof AuthenticatedAccountActivityRoute
+  '/_authenticated/account/downloads': typeof AuthenticatedAccountDownloadsRoute
+  '/_authenticated/account/feedback': typeof AuthenticatedAccountFeedbackRoute
+  '/_authenticated/account/history': typeof AuthenticatedAccountHistoryRoute
+  '/_authenticated/account/messages': typeof AuthenticatedAccountMessagesRoute
+  '/_authenticated/account/premium': typeof AuthenticatedAccountPremiumRoute
+  '/_authenticated/account/profile': typeof AuthenticatedAccountProfileRoute
+  '/_authenticated/account/rewards': typeof AuthenticatedAccountRewardsRoute
+  '/_authenticated/account/settings': typeof AuthenticatedAccountSettingsRoute
   '/_authenticated/admin/$id': typeof AuthenticatedAdminIdRoute
   '/_authenticated/admin/new': typeof AuthenticatedAdminNewRoute
   '/_authenticated/admin/providers': typeof AuthenticatedAdminProvidersRoute
+  '/_authenticated/account/': typeof AuthenticatedAccountIndexRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -129,13 +237,24 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/search'
+    | '/account'
     | '/admin'
     | '/watchlist'
     | '/movie/$slug'
     | '/watch/$slug'
+    | '/account/activity'
+    | '/account/downloads'
+    | '/account/feedback'
+    | '/account/history'
+    | '/account/messages'
+    | '/account/premium'
+    | '/account/profile'
+    | '/account/rewards'
+    | '/account/settings'
     | '/admin/$id'
     | '/admin/new'
     | '/admin/providers'
+    | '/account/'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -145,9 +264,19 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/movie/$slug'
     | '/watch/$slug'
+    | '/account/activity'
+    | '/account/downloads'
+    | '/account/feedback'
+    | '/account/history'
+    | '/account/messages'
+    | '/account/premium'
+    | '/account/profile'
+    | '/account/rewards'
+    | '/account/settings'
     | '/admin/$id'
     | '/admin/new'
     | '/admin/providers'
+    | '/account'
     | '/admin'
   id:
     | '__root__'
@@ -155,13 +284,24 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/search'
+    | '/_authenticated/account'
     | '/_authenticated/admin'
     | '/_authenticated/watchlist'
     | '/movie/$slug'
     | '/watch/$slug'
+    | '/_authenticated/account/activity'
+    | '/_authenticated/account/downloads'
+    | '/_authenticated/account/feedback'
+    | '/_authenticated/account/history'
+    | '/_authenticated/account/messages'
+    | '/_authenticated/account/premium'
+    | '/_authenticated/account/profile'
+    | '/_authenticated/account/rewards'
+    | '/_authenticated/account/settings'
     | '/_authenticated/admin/$id'
     | '/_authenticated/admin/new'
     | '/_authenticated/admin/providers'
+    | '/_authenticated/account/'
     | '/_authenticated/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -204,6 +344,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/account': {
+      id: '/_authenticated/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthenticatedAccountRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin': {
       id: '/_authenticated/admin'
       path: '/admin'
@@ -231,6 +378,76 @@ declare module '@tanstack/react-router' {
       fullPath: '/watch/$slug'
       preLoaderRoute: typeof WatchSlugRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/account/': {
+      id: '/_authenticated/account/'
+      path: '/'
+      fullPath: '/account/'
+      preLoaderRoute: typeof AuthenticatedAccountIndexRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
+    }
+    '/_authenticated/account/activity': {
+      id: '/_authenticated/account/activity'
+      path: '/activity'
+      fullPath: '/account/activity'
+      preLoaderRoute: typeof AuthenticatedAccountActivityRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
+    }
+    '/_authenticated/account/downloads': {
+      id: '/_authenticated/account/downloads'
+      path: '/downloads'
+      fullPath: '/account/downloads'
+      preLoaderRoute: typeof AuthenticatedAccountDownloadsRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
+    }
+    '/_authenticated/account/feedback': {
+      id: '/_authenticated/account/feedback'
+      path: '/feedback'
+      fullPath: '/account/feedback'
+      preLoaderRoute: typeof AuthenticatedAccountFeedbackRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
+    }
+    '/_authenticated/account/history': {
+      id: '/_authenticated/account/history'
+      path: '/history'
+      fullPath: '/account/history'
+      preLoaderRoute: typeof AuthenticatedAccountHistoryRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
+    }
+    '/_authenticated/account/messages': {
+      id: '/_authenticated/account/messages'
+      path: '/messages'
+      fullPath: '/account/messages'
+      preLoaderRoute: typeof AuthenticatedAccountMessagesRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
+    }
+    '/_authenticated/account/premium': {
+      id: '/_authenticated/account/premium'
+      path: '/premium'
+      fullPath: '/account/premium'
+      preLoaderRoute: typeof AuthenticatedAccountPremiumRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
+    }
+    '/_authenticated/account/profile': {
+      id: '/_authenticated/account/profile'
+      path: '/profile'
+      fullPath: '/account/profile'
+      preLoaderRoute: typeof AuthenticatedAccountProfileRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
+    }
+    '/_authenticated/account/rewards': {
+      id: '/_authenticated/account/rewards'
+      path: '/rewards'
+      fullPath: '/account/rewards'
+      preLoaderRoute: typeof AuthenticatedAccountRewardsRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
+    }
+    '/_authenticated/account/settings': {
+      id: '/_authenticated/account/settings'
+      path: '/settings'
+      fullPath: '/account/settings'
+      preLoaderRoute: typeof AuthenticatedAccountSettingsRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
     }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
@@ -263,6 +480,35 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAccountRouteChildren {
+  AuthenticatedAccountActivityRoute: typeof AuthenticatedAccountActivityRoute
+  AuthenticatedAccountDownloadsRoute: typeof AuthenticatedAccountDownloadsRoute
+  AuthenticatedAccountFeedbackRoute: typeof AuthenticatedAccountFeedbackRoute
+  AuthenticatedAccountHistoryRoute: typeof AuthenticatedAccountHistoryRoute
+  AuthenticatedAccountMessagesRoute: typeof AuthenticatedAccountMessagesRoute
+  AuthenticatedAccountPremiumRoute: typeof AuthenticatedAccountPremiumRoute
+  AuthenticatedAccountProfileRoute: typeof AuthenticatedAccountProfileRoute
+  AuthenticatedAccountRewardsRoute: typeof AuthenticatedAccountRewardsRoute
+  AuthenticatedAccountSettingsRoute: typeof AuthenticatedAccountSettingsRoute
+  AuthenticatedAccountIndexRoute: typeof AuthenticatedAccountIndexRoute
+}
+
+const AuthenticatedAccountRouteChildren: AuthenticatedAccountRouteChildren = {
+  AuthenticatedAccountActivityRoute: AuthenticatedAccountActivityRoute,
+  AuthenticatedAccountDownloadsRoute: AuthenticatedAccountDownloadsRoute,
+  AuthenticatedAccountFeedbackRoute: AuthenticatedAccountFeedbackRoute,
+  AuthenticatedAccountHistoryRoute: AuthenticatedAccountHistoryRoute,
+  AuthenticatedAccountMessagesRoute: AuthenticatedAccountMessagesRoute,
+  AuthenticatedAccountPremiumRoute: AuthenticatedAccountPremiumRoute,
+  AuthenticatedAccountProfileRoute: AuthenticatedAccountProfileRoute,
+  AuthenticatedAccountRewardsRoute: AuthenticatedAccountRewardsRoute,
+  AuthenticatedAccountSettingsRoute: AuthenticatedAccountSettingsRoute,
+  AuthenticatedAccountIndexRoute: AuthenticatedAccountIndexRoute,
+}
+
+const AuthenticatedAccountRouteWithChildren =
+  AuthenticatedAccountRoute._addFileChildren(AuthenticatedAccountRouteChildren)
+
 interface AuthenticatedAdminRouteChildren {
   AuthenticatedAdminIdRoute: typeof AuthenticatedAdminIdRoute
   AuthenticatedAdminNewRoute: typeof AuthenticatedAdminNewRoute
@@ -281,11 +527,13 @@ const AuthenticatedAdminRouteWithChildren =
   AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAccountRoute: typeof AuthenticatedAccountRouteWithChildren
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedWatchlistRoute: typeof AuthenticatedWatchlistRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAccountRoute: AuthenticatedAccountRouteWithChildren,
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedWatchlistRoute: AuthenticatedWatchlistRoute,
 }

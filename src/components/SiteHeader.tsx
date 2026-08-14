@@ -87,6 +87,11 @@ export function SiteHeader() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
+                  <Link to="/account">
+                    <UserIcon className="size-4" /> My account
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link to="/watchlist">
                     <Bookmark className="size-4" /> My list
                   </Link>
