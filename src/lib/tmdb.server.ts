@@ -1,5 +1,13 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { slugify } from "@/lib/movies";
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
 
 const IMG = "https://image.tmdb.org/t/p";
 const API = "https://api.themoviedb.org/3";
