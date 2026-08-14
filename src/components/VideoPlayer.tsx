@@ -17,7 +17,6 @@ import { Slider } from "@/components/ui/slider";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -429,8 +428,4 @@ function ControlButton({
       {children}
     </button>
   );
-}
-
-export function DropdownMenuItemPlaceholder() {
-  return <DropdownMenuItem />;
 }
