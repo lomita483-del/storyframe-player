@@ -19,6 +19,9 @@ import { Route as AuthenticatedWatchlistRouteImport } from './routes/_authentica
 import { Route as MovieSlugRouteImport } from './routes/movie.$slug'
 import { Route as WatchSlugRouteImport } from './routes/watch.$slug'
 import { Route as AuthenticatedAccountIndexRouteImport } from './routes/_authenticated/account.index'
+import { Route as AuthenticatedAccountHistoryRouteImport } from './routes/_authenticated/account.history'
+import { Route as AuthenticatedAccountPremiumRouteImport } from './routes/_authenticated/account.premium'
+import { Route as AuthenticatedAccountProfileRouteImport } from './routes/_authenticated/account.profile'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as AuthenticatedAdminIdRouteImport } from './routes/_authenticated/admin.$id'
 import { Route as AuthenticatedAdminNewRouteImport } from './routes/_authenticated/admin.new'
@@ -74,6 +77,24 @@ const AuthenticatedAccountIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAccountRoute,
   } as any)
+const AuthenticatedAccountHistoryRoute =
+  AuthenticatedAccountHistoryRouteImport.update({
+    id: '/history',
+    path: '/history',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
+const AuthenticatedAccountPremiumRoute =
+  AuthenticatedAccountPremiumRouteImport.update({
+    id: '/premium',
+    path: '/premium',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
+const AuthenticatedAccountProfileRoute =
+  AuthenticatedAccountProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => AuthenticatedAccountRoute,
+  } as any)
 const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -105,6 +126,9 @@ export interface FileRoutesByFullPath {
   '/watchlist': typeof AuthenticatedWatchlistRoute
   '/movie/$slug': typeof MovieSlugRoute
   '/watch/$slug': typeof WatchSlugRoute
+  '/account/history': typeof AuthenticatedAccountHistoryRoute
+  '/account/premium': typeof AuthenticatedAccountPremiumRoute
+  '/account/profile': typeof AuthenticatedAccountProfileRoute
   '/admin/$id': typeof AuthenticatedAdminIdRoute
   '/admin/new': typeof AuthenticatedAdminNewRoute
   '/admin/providers': typeof AuthenticatedAdminProvidersRoute
@@ -118,6 +142,9 @@ export interface FileRoutesByTo {
   '/watchlist': typeof AuthenticatedWatchlistRoute
   '/movie/$slug': typeof MovieSlugRoute
   '/watch/$slug': typeof WatchSlugRoute
+  '/account/history': typeof AuthenticatedAccountHistoryRoute
+  '/account/premium': typeof AuthenticatedAccountPremiumRoute
+  '/account/profile': typeof AuthenticatedAccountProfileRoute
   '/admin/$id': typeof AuthenticatedAdminIdRoute
   '/admin/new': typeof AuthenticatedAdminNewRoute
   '/admin/providers': typeof AuthenticatedAdminProvidersRoute
@@ -135,6 +162,9 @@ export interface FileRoutesById {
   '/_authenticated/watchlist': typeof AuthenticatedWatchlistRoute
   '/movie/$slug': typeof MovieSlugRoute
   '/watch/$slug': typeof WatchSlugRoute
+  '/_authenticated/account/history': typeof AuthenticatedAccountHistoryRoute
+  '/_authenticated/account/premium': typeof AuthenticatedAccountPremiumRoute
+  '/_authenticated/account/profile': typeof AuthenticatedAccountProfileRoute
   '/_authenticated/admin/$id': typeof AuthenticatedAdminIdRoute
   '/_authenticated/admin/new': typeof AuthenticatedAdminNewRoute
   '/_authenticated/admin/providers': typeof AuthenticatedAdminProvidersRoute
@@ -152,6 +182,9 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/movie/$slug'
     | '/watch/$slug'
+    | '/account/history'
+    | '/account/premium'
+    | '/account/profile'
     | '/admin/$id'
     | '/admin/new'
     | '/admin/providers'
@@ -165,6 +198,9 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/movie/$slug'
     | '/watch/$slug'
+    | '/account/history'
+    | '/account/premium'
+    | '/account/profile'
     | '/admin/$id'
     | '/admin/new'
     | '/admin/providers'
@@ -181,6 +217,9 @@ export interface FileRouteTypes {
     | '/_authenticated/watchlist'
     | '/movie/$slug'
     | '/watch/$slug'
+    | '/_authenticated/account/history'
+    | '/_authenticated/account/premium'
+    | '/_authenticated/account/profile'
     | '/_authenticated/admin/$id'
     | '/_authenticated/admin/new'
     | '/_authenticated/admin/providers'
@@ -269,6 +308,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountIndexRouteImport
       parentRoute: typeof AuthenticatedAccountRoute
     }
+    '/_authenticated/account/history': {
+      id: '/_authenticated/account/history'
+      path: '/history'
+      fullPath: '/account/history'
+      preLoaderRoute: typeof AuthenticatedAccountHistoryRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
+    }
+    '/_authenticated/account/premium': {
+      id: '/_authenticated/account/premium'
+      path: '/premium'
+      fullPath: '/account/premium'
+      preLoaderRoute: typeof AuthenticatedAccountPremiumRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
+    }
+    '/_authenticated/account/profile': {
+      id: '/_authenticated/account/profile'
+      path: '/profile'
+      fullPath: '/account/profile'
+      preLoaderRoute: typeof AuthenticatedAccountProfileRouteImport
+      parentRoute: typeof AuthenticatedAccountRoute
+    }
     '/_authenticated/admin/': {
       id: '/_authenticated/admin/'
       path: '/'
@@ -301,10 +361,16 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedAccountRouteChildren {
+  AuthenticatedAccountHistoryRoute: typeof AuthenticatedAccountHistoryRoute
+  AuthenticatedAccountPremiumRoute: typeof AuthenticatedAccountPremiumRoute
+  AuthenticatedAccountProfileRoute: typeof AuthenticatedAccountProfileRoute
   AuthenticatedAccountIndexRoute: typeof AuthenticatedAccountIndexRoute
 }
 
 const AuthenticatedAccountRouteChildren: AuthenticatedAccountRouteChildren = {
+  AuthenticatedAccountHistoryRoute: AuthenticatedAccountHistoryRoute,
+  AuthenticatedAccountPremiumRoute: AuthenticatedAccountPremiumRoute,
+  AuthenticatedAccountProfileRoute: AuthenticatedAccountProfileRoute,
   AuthenticatedAccountIndexRoute: AuthenticatedAccountIndexRoute,
 }
 
