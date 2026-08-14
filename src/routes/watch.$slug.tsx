@@ -152,7 +152,7 @@ function WatchPage() {
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                   {movie.where_to_watch.map((link) => (
                     <a
-                      key={link.url}
+                      key={`${link.name}-${link.url}`}
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"

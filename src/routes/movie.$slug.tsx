@@ -184,7 +184,7 @@ function MovieDetails() {
                   </h2>
                   <ul className="mt-3 flex flex-wrap gap-2">
                     {movie.where_to_watch.map((link) => (
-                      <li key={link.url}>
+                      <li key={`${link.name}-${link.url}`}>
                         <a
                           href={link.url}
                           target="_blank"
