@@ -104,6 +104,7 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: genres } = useQuery(genresQuery());
+  const { data: providerSettings } = useQuery(providerSettingsQuery());
   const [form, setForm] = useState<FormState>(() => toForm(movie));
   const [errors, setErrors] = useState<Record<string, string>>({});
 
