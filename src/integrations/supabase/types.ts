@@ -43,6 +43,8 @@ export type Database = {
           created_by: string | null
           description: string | null
           director: string | null
+          embed_provider: string | null
+          embed_url: string | null
           genre: string | null
           id: string
           is_featured: boolean
@@ -60,6 +62,7 @@ export type Database = {
           updated_at: string
           video_type: string
           video_url: string | null
+          where_to_watch: Json
         }
         Insert: {
           backdrop_url?: string | null
@@ -68,6 +71,8 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           director?: string | null
+          embed_provider?: string | null
+          embed_url?: string | null
           genre?: string | null
           id?: string
           is_featured?: boolean
@@ -85,6 +90,7 @@ export type Database = {
           updated_at?: string
           video_type?: string
           video_url?: string | null
+          where_to_watch?: Json
         }
         Update: {
           backdrop_url?: string | null
@@ -93,6 +99,8 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           director?: string | null
+          embed_provider?: string | null
+          embed_url?: string | null
           genre?: string | null
           id?: string
           is_featured?: boolean
@@ -110,6 +118,7 @@ export type Database = {
           updated_at?: string
           video_type?: string
           video_url?: string | null
+          where_to_watch?: Json
         }
         Relationships: []
       }
