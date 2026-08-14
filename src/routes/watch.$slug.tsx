@@ -5,7 +5,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { movieBySlugQuery, saveProgress, formatRuntime } from "@/lib/movies";
 import { useAuth } from "@/hooks/useAuth";
-import { embedSrc } from "@/lib/media";
+import { archiveEmbedSrc, embedSrc } from "@/lib/media";
 import { episodesQuery, seasonsQuery } from "@/lib/tv";
 import { z } from "zod";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -100,11 +100,12 @@ function WatchPage() {
   }
   if (!movie) throw notFound();
 
-  const embed = episode
+  const providerEmbed = episode
     ? embedSrc(episode.embed_provider, episode.embed_url) ??
       embedSrc(movie.embed_provider, movie.embed_url)
     : embedSrc(movie.embed_provider, movie.embed_url);
   const videoSrc = episode?.video_url ?? movie.video_url;
+  const embed = providerEmbed ?? archiveEmbedSrc(videoSrc);
   const videoType = episode?.video_url ? episode.video_type : movie.video_type;
   const subtitleUrl = episode?.subtitle_url ?? movie.subtitle_url;
   const heading = episode
