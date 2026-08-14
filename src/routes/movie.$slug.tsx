@@ -1,7 +1,10 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { Play, Film, Loader2, Star, ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Play, Film, Loader2, Star, ArrowLeft, Tv } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { enrichTitleBySlug } from "@/lib/tmdb.functions";
+import { seasonsQuery, episodesQuery, type Season } from "@/lib/tv";
 import { movieBySlugQuery, publishedMoviesQuery, formatRuntime } from "@/lib/movies";
 import { Button } from "@/components/ui/button";
 import { WatchlistButton } from "@/components/WatchlistButton";
@@ -51,6 +54,26 @@ function MovieDetails() {
   const { data: movie, isLoading } = useQuery(movieBySlugQuery(slug));
   const { data: all } = useQuery(publishedMoviesQuery());
   const [trailerOpen, setTrailerOpen] = useState(false);
+  const isShow = movie?.media_type === "tv";
+  const { data: seasons } = useQuery(seasonsQuery(movie?.id));
+  const enrich = useServerFn(enrichTitleBySlug);
+  const queryClient = useQueryClient();
+  const enriched = useRef<string | null>(null);
+
+  const needsDetail =
+    Boolean(movie?.tmdb_id) &&
+    (!movie?.cast?.length || (isShow && seasons !== undefined && seasons.length === 0));
+
+  useEffect(() => {
+    if (!movie || !needsDetail || enriched.current === movie.slug) return;
+    enriched.current = movie.slug;
+    void enrich({ data: { slug: movie.slug } }).then((result) => {
+      if (result?.enriched) {
+        void queryClient.invalidateQueries({ queryKey: ["movies"] });
+        void queryClient.invalidateQueries({ queryKey: ["seasons"] });
+      }
+    });
+  }, [movie, needsDetail, enrich, queryClient]);
 
   if (isLoading) {
     return (
@@ -137,7 +160,8 @@ function MovieDetails() {
               <div className="mt-7 flex flex-wrap items-center gap-2.5">
                 <Button asChild size="lg" className="rounded-full px-7">
                   <Link to="/watch/$slug" params={{ slug: movie.slug }}>
-                    <Play className="size-4 fill-current" /> Watch Now
+                    <Play className="size-4 fill-current" />{" "}
+                    {isShow ? "Watch episode 1" : "Watch Now"}
                   </Link>
                 </Button>
                 <WatchlistButton movieId={movie.id} />
@@ -193,6 +217,10 @@ function MovieDetails() {
         </div>
       </section>
 
+      {isShow && (
+        <EpisodesSection movieId={movie.id} slug={movie.slug} seasons={seasons ?? []} />
+      )}
+
       <div className="mt-14">
         <MovieRow title="More like this" movies={related} />
       </div>
@@ -212,6 +240,110 @@ function MovieDetails() {
         </DialogContent>
       </Dialog>
     </main>
+  );
+}
+
+function EpisodesSection({
+  movieId,
+  slug,
+  seasons,
+}: {
+  movieId: string;
+  slug: string;
+  seasons: Season[];
+}) {
+  const [active, setActive] = useState<number | null>(null);
+  const seasonNumber = active ?? seasons[0]?.season_number ?? null;
+  const { data: episodes, isLoading } = useQuery(
+    episodesQuery(movieId, seasonNumber ?? undefined),
+  );
+
+  if (!seasons.length) {
+    return (
+      <section className="mx-auto mt-14 max-w-[1400px] px-4 md:px-8">
+        <h2 className="text-lg font-semibold md:text-xl">Episodes</h2>
+        <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" /> Loading seasons…
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mx-auto mt-14 max-w-[1400px] px-4 md:px-8">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-lg font-semibold md:text-xl">Episodes</h2>
+        <div className="flex flex-wrap gap-1.5">
+          {seasons.map((season) => (
+            <button
+              key={season.id}
+              type="button"
+              onClick={() => setActive(season.season_number)}
+              className={
+                "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors " +
+                (season.season_number === seasonNumber
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "border-border text-muted-foreground hover:bg-surface-2")
+              }
+            >
+              {season.name ?? `Season ${season.season_number}`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p className="mt-5 flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" /> Loading episodes…
+        </p>
+      ) : (
+        <ul className="mt-5 space-y-3">
+          {(episodes ?? []).map((episode) => (
+            <li key={episode.id}>
+              <Link
+                to="/watch/$slug"
+                params={{ slug }}
+                search={{ s: episode.season_number, e: episode.episode_number }}
+                className="flex gap-4 rounded-2xl border border-border bg-surface/60 p-3 transition-colors hover:bg-surface-2"
+              >
+                {episode.still_url ? (
+                  <img
+                    src={episode.still_url}
+                    alt=""
+                    loading="lazy"
+                    className="h-20 w-32 shrink-0 rounded-xl object-cover"
+                  />
+                ) : (
+                  <div className="grid h-20 w-32 shrink-0 place-items-center rounded-xl bg-surface-2 text-muted-foreground">
+                    <Tv className="size-5" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold">
+                    {episode.episode_number}. {episode.name}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {[episode.air_date, episode.runtime ? `${episode.runtime}m` : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                  {episode.overview && (
+                    <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">
+                      {episode.overview}
+                    </p>
+                  )}
+                </div>
+              </Link>
+            </li>
+          ))}
+          {!episodes?.length && (
+            <li className="rounded-2xl border border-border bg-surface/60 p-8 text-center text-sm text-muted-foreground">
+              No episodes listed for this season yet.
+            </li>
+          )}
+        </ul>
+      )}
+    </section>
   );
 }
 
