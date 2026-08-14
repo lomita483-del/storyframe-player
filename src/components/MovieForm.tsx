@@ -80,6 +80,8 @@ function toForm(movie?: Movie | null): FormState {
     quality: movie?.quality ?? "1080p",
     embed_url: movie?.embed_url ?? "",
     embed_provider: movie?.embed_provider ?? "",
+    provider: movie?.provider ?? "",
+    provider_asset_id: movie?.provider_asset_id ?? "",
     where_to_watch: movie?.where_to_watch ?? [],
     is_published: movie?.is_published ?? false,
     is_featured: movie?.is_featured ?? false,
