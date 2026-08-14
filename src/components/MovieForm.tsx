@@ -52,6 +52,8 @@ type FormState = {
   quality: string;
   embed_url: string;
   embed_provider: string;
+  provider: string;
+  provider_asset_id: string;
   where_to_watch: WhereToWatchLink[];
   is_published: boolean;
   is_featured: boolean;
