@@ -12,9 +12,13 @@ import {
   Film,
   RefreshCw,
   Tv,
+  Download,
+  Youtube,
+  PlayCircle,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { syncCatalogueNow } from "@/lib/tmdb.functions";
+import { importPublicDomain, fillTrailers } from "@/lib/library.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { adminMoviesQuery, type Movie } from "@/lib/movies";
