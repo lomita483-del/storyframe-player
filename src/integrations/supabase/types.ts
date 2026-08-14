@@ -14,16 +14,236 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      genres: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      movies: {
+        Row: {
+          backdrop_url: string | null
+          cast: string[]
+          created_at: string
+          created_by: string | null
+          description: string | null
+          director: string | null
+          genre: string | null
+          id: string
+          is_featured: boolean
+          is_published: boolean
+          is_trending: boolean
+          poster_url: string | null
+          quality: string | null
+          rating: number | null
+          release_year: number | null
+          runtime: number | null
+          slug: string
+          subtitle_url: string | null
+          title: string
+          trailer_url: string | null
+          updated_at: string
+          video_type: string
+          video_url: string | null
+        }
+        Insert: {
+          backdrop_url?: string | null
+          cast?: string[]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          director?: string | null
+          genre?: string | null
+          id?: string
+          is_featured?: boolean
+          is_published?: boolean
+          is_trending?: boolean
+          poster_url?: string | null
+          quality?: string | null
+          rating?: number | null
+          release_year?: number | null
+          runtime?: number | null
+          slug: string
+          subtitle_url?: string | null
+          title: string
+          trailer_url?: string | null
+          updated_at?: string
+          video_type?: string
+          video_url?: string | null
+        }
+        Update: {
+          backdrop_url?: string | null
+          cast?: string[]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          director?: string | null
+          genre?: string | null
+          id?: string
+          is_featured?: boolean
+          is_published?: boolean
+          is_trending?: boolean
+          poster_url?: string | null
+          quality?: string | null
+          rating?: number | null
+          release_year?: number | null
+          runtime?: number | null
+          slug?: string
+          subtitle_url?: string | null
+          title?: string
+          trailer_url?: string | null
+          updated_at?: string
+          video_type?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      watch_history: {
+        Row: {
+          completed: boolean
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          movie_id: string
+          progress_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          movie_id: string
+          progress_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          movie_id?: string
+          progress_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_history_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      watchlists: {
+        Row: {
+          created_at: string
+          id: string
+          movie_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          movie_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          movie_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watchlists_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      claim_first_admin: { Args: never; Returns: boolean }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +370,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
