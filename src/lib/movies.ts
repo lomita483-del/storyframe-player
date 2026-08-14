@@ -113,17 +113,26 @@ export const searchMoviesQuery = (term: string) =>
       if (!q) return [];
       const year = /^\d{4}$/.test(q) ? Number(q) : null;
       const like = `%${q}%`;
-      let filter = `title.ilike.${like},genre.ilike.${like},director.ilike.${like},description.ilike.${like},cast.cs.{${q}}`;
+      let filter = `title.ilike.${like},genre.ilike.${like},director.ilike.${like},description.ilike.${like}`;
       if (year) filter += `,release_year.eq.${year}`;
-      const { data, error } = await supabase
-        .from("movies")
-        .select(MOVIE_FIELDS)
-        .eq("is_published", true)
-        .or(filter)
-        .limit(48);
-      if (error) throw error;
-      return (data ?? []) as unknown as Movie[];
+
+      const base = () => supabase.from("movies").select(MOVIE_FIELDS).eq("is_published", true);
+      const [text, byCast] = await Promise.all([
+        base().or(filter).limit(48),
+        base().filter("cast", "cs", `{"${q.replace(/"/g, "")}"}`).limit(24),
+      ]);
+      if (text.error) throw text.error;
+
+      const merged = new Map<string, Movie>();
+      for (const row of [
+        ...((text.data ?? []) as unknown as Movie[]),
+        ...((byCast.error ? [] : ((byCast.data ?? []) as unknown as Movie[])) as Movie[]),
+      ]) {
+        merged.set(row.id, row);
+      }
+      return [...merged.values()];
     },
+
   });
 
 /* ---------------- admin ---------------- */
