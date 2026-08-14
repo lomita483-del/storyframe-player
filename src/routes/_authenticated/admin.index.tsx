@@ -15,6 +15,7 @@ import {
   Download,
   Youtube,
   PlayCircle,
+  CloudCog,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { syncCatalogueNow } from "@/lib/tmdb.functions";
