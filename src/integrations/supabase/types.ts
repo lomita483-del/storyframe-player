@@ -126,6 +126,7 @@ export type Database = {
           director: string | null
           embed_provider: string | null
           embed_url: string | null
+          external_id: string | null
           first_air_date: string | null
           genre: string | null
           id: string
@@ -137,6 +138,8 @@ export type Database = {
           media_type: string
           popularity: number | null
           poster_url: string | null
+          provider: string | null
+          provider_asset_id: string | null
           quality: string | null
           rating: number | null
           release_year: number | null
@@ -160,6 +163,7 @@ export type Database = {
           director?: string | null
           embed_provider?: string | null
           embed_url?: string | null
+          external_id?: string | null
           first_air_date?: string | null
           genre?: string | null
           id?: string
@@ -171,6 +175,8 @@ export type Database = {
           media_type?: string
           popularity?: number | null
           poster_url?: string | null
+          provider?: string | null
+          provider_asset_id?: string | null
           quality?: string | null
           rating?: number | null
           release_year?: number | null
@@ -194,6 +200,7 @@ export type Database = {
           director?: string | null
           embed_provider?: string | null
           embed_url?: string | null
+          external_id?: string | null
           first_air_date?: string | null
           genre?: string | null
           id?: string
@@ -205,6 +212,8 @@ export type Database = {
           media_type?: string
           popularity?: number | null
           poster_url?: string | null
+          provider?: string | null
+          provider_asset_id?: string | null
           quality?: string | null
           rating?: number | null
           release_year?: number | null
@@ -241,6 +250,33 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      provider_settings: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          is_enabled: boolean
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          provider?: string
           updated_at?: string
         }
         Relationships: []

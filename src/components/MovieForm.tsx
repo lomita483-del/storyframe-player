@@ -6,6 +6,11 @@ import { Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { EMBED_PROVIDERS, embedSrc, type WhereToWatchLink } from "@/lib/media";
+import {
+  VIDEO_PROVIDERS,
+  buildPlaybackUrl,
+  providerSettingsQuery,
+} from "@/lib/providers";
 import { MediaUploadField } from "@/components/MediaUploadField";
 import { WhereToWatchEditor } from "@/components/WhereToWatchEditor";
 import {
@@ -47,6 +52,8 @@ type FormState = {
   quality: string;
   embed_url: string;
   embed_provider: string;
+  provider: string;
+  provider_asset_id: string;
   where_to_watch: WhereToWatchLink[];
   is_published: boolean;
   is_featured: boolean;
@@ -73,6 +80,8 @@ function toForm(movie?: Movie | null): FormState {
     quality: movie?.quality ?? "1080p",
     embed_url: movie?.embed_url ?? "",
     embed_provider: movie?.embed_provider ?? "",
+    provider: movie?.provider ?? "",
+    provider_asset_id: movie?.provider_asset_id ?? "",
     where_to_watch: movie?.where_to_watch ?? [],
     is_published: movie?.is_published ?? false,
     is_featured: movie?.is_featured ?? false,
@@ -95,6 +104,7 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: genres } = useQuery(genresQuery());
+  const { data: providerSettings } = useQuery(providerSettingsQuery());
   const [form, setForm] = useState<FormState>(() => toForm(movie));
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -151,6 +161,8 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
         quality: form.quality,
         embed_url: form.embed_url.trim() || null,
         embed_provider: form.embed_url.trim() ? form.embed_provider || null : null,
+        provider: form.provider || null,
+        provider_asset_id: form.provider_asset_id.trim() || null,
         where_to_watch: form.where_to_watch.filter((link) => link.name && link.url),
         is_published: form.is_published,
         is_featured: form.is_featured,
@@ -188,8 +200,72 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
     mutation.mutate();
   }
 
+  const activeProvider = VIDEO_PROVIDERS.find((entry) => entry.value === form.provider);
+  const providerConfig = form.provider ? providerSettings?.[form.provider]?.config ?? {} : {};
+  const generated = buildPlaybackUrl(form.provider, form.provider_asset_id, providerConfig);
+
+  function applyProviderUrl() {
+    if (!generated) {
+      toast.error("Connect this provider under Providers and add an asset ID first.");
+      return;
+    }
+    set("video_url", generated.url);
+    set("video_type", generated.type);
+    toast.success("Authorized playback URL applied");
+  }
+
   return (
     <form onSubmit={submit} className="space-y-6">
+      <Section
+        title="Licensed provider"
+        description="Pick the licensed CDN hosting this title and paste its asset ID — the authorized HLS URL is generated for you."
+      >
+        <Field label="Provider">
+          <Select
+            value={form.provider || "none"}
+            onValueChange={(value) => set("provider", value === "none" ? "" : value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select a provider" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No provider (direct URL)</SelectItem>
+              {VIDEO_PROVIDERS.map((provider) => (
+                <SelectItem key={provider.value} value={provider.value}>
+                  {provider.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label={activeProvider?.assetLabel ?? "Asset ID"}>
+          <Input
+            value={form.provider_asset_id}
+            onChange={(event) => set("provider_asset_id", event.target.value)}
+            placeholder={activeProvider?.assetLabel ?? "Provider asset ID"}
+            disabled={!form.provider}
+          />
+        </Field>
+
+        <div className="md:col-span-2 space-y-2">
+          <p className="break-all text-xs text-muted-foreground">
+            {generated
+              ? generated.url
+              : "Generated playback URL appears here once the provider is connected."}
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            className="rounded-full"
+            onClick={applyProviderUrl}
+            disabled={!generated}
+          >
+            Use this playback URL
+          </Button>
+        </div>
+      </Section>
+
       <Section
         title="Streaming"
         description="Metadata lives here; the video itself stays on your authorized video host or CDN."

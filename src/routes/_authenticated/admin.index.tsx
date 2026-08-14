@@ -15,6 +15,7 @@ import {
   Download,
   Youtube,
   PlayCircle,
+  CloudCog,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { syncCatalogueNow } from "@/lib/tmdb.functions";
@@ -168,6 +169,11 @@ function AdminMovies() {
               <Youtube className="size-4" />
             )}
             Fill trailers
+          </Button>
+          <Button asChild variant="secondary" className="rounded-full">
+            <Link to="/admin/providers">
+              <CloudCog className="size-4" /> Providers
+            </Link>
           </Button>
           <Button asChild className="rounded-full">
             <Link to="/admin/new">
