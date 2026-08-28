@@ -10,6 +10,7 @@ export type Movie = {
   poster_url: string | null;
   backdrop_url: string | null;
   video_url: string | null;
+  direct_stream_url: string | null;
   video_type: string;
   subtitle_url: string | null;
   trailer_url: string | null;
