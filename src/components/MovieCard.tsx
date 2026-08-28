@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Play, Star, Loader2 } from "lucide-react";
+import { Play, Star } from "lucide-react";
 import type { Movie } from "@/lib/movies";
 import { cn } from "@/lib/utils";
 import { StreamingPlayer } from "./StreamingPlayer"; // Import your sandbox iframe player
@@ -12,43 +12,30 @@ type Props = {
 };
 
 export function MovieCard({ movie, className, progressPercent }: Props) {
-  const [streamUrl, setStreamUrl] = useState<string | null>(null);
-  const [isResolving, setIsResolving] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  const handleCardPlayback = async (e: React.MouseEvent) => {
-    // Stop the default router link navigation so we can handle the scrape action first
-    e.preventDefault();
-    setIsResolving(true);
+  // Fallback placeholder ID if movie.id is missing or isn't a clean TMDb/IMDb ID
+  // e.g., 'tt1877830' (The Batman) or a number like '76341'
+  const targetId = movie.id || "tt1877830";
 
-    try {
-      // 1. Request the direct streaming media resource from your private offshore backend server
-      // We pass the movie id or unique identifier to resolve the content
-      const response = await fetch(`https://your-private-server.com{movie.id}`);
-      const data = await response.json();
+  // Use a public aggregator endpoint directly. 
+  // (Change 'vidsrc.to' to any alternative mirror platform you find active)
+  const directPublicEmbedUrl = `https://vidsrc.to{targetId}`;
 
-      if (data.success && data.stream_url) {
-        // 2. Set the stream source if found, which renders the iframe player immediately
-        setStreamUrl(data.stream_url);
-      } else {
-        alert("Sourcing streaming channel nodes... Please try a different title link.");
-      }
-    } catch (err) {
-      console.error("Failed to map target media stream:", err);
-      alert("Streaming infrastructure offline. Check your private server connection status.");
-    } finally {
-      setIsResolving(false);
-    }
+  const handleCardPlayback = (e: React.MouseEvent) => {
+    e.preventDefault(); // Stop page from navigating away
+    setIsPlaying(true);  // Load player overlay instantly
   };
 
-  // If a streaming url is actively loaded into the state, render the video player frame layout
-  if (streamUrl) {
+  // Render the video player container directly inside your frontend viewport
+  if (isPlaying) {
     return (
-      <div className="fixed inset-0 z-50 bg-black flex items-center justify-center p-4 md:p-8">
+      <div className="fixed inset-0 z-50 bg-black flex items-center justify-center p-4 md:p-8 animate-fade-in">
         <StreamingPlayer 
-          src={streamUrl} 
+          src={directPublicEmbedUrl} 
           title={movie.title} 
-          className="w-full max-w-5xl" 
-          onBack={() => setStreamUrl(null)} 
+          className="w-full h-full max-w-5xl" 
+          onBack={() => setIsPlaying(false)} 
         />
       </div>
     );
@@ -58,7 +45,7 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
     <Link
       to="/movie/$slug"
       params={{ slug: movie.slug }}
-      onClick={handleCardPlayback} // Inject our custom intercept hook here
+      onClick={handleCardPlayback} // Trigger the instant video overlay
       className={cn(
         "group relative block w-[44vw] max-w-[190px] overflow-hidden rounded-2xl bg-surface outline-none transition-transform duration-500 ease-[var(--ease-cinema)] sm:w-[180px] md:w-[200px]",
         "focus-visible:ring-2 focus-visible:ring-ring hover:-translate-y-1",
@@ -93,14 +80,9 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
           )}
         </div>
 
-        {/* Hover/Loading State Overlay Trigger */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-black/40">
           <span className="grid size-12 place-items-center rounded-full bg-primary/90 text-primary-foreground shadow-glow">
-            {isResolving ? (
-              <Loader2 className="size-5 animate-spin text-white" />
-            ) : (
-              <Play className="size-5 fill-current" />
-            )}
+            <Play className="size-5 fill-current" />
           </span>
         </div>
 
@@ -111,12 +93,6 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
               style={{ width: `${Math.min(100, progressPercent)}%` }}
             />
           </div>
-        )}
-
-        {!movie.is_published && (
-          <span className="absolute left-3 top-3 rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
-            Draft
-          </span>
         )}
       </div>
 
