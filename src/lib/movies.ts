@@ -47,7 +47,7 @@ export type WatchHistoryRow = {
 };
 
 const MOVIE_FIELDS =
-  'id,title,slug,description,poster_url,backdrop_url,video_url,video_type,subtitle_url,trailer_url,embed_url,embed_provider,provider,provider_asset_id,where_to_watch,genre,release_year,runtime,rating,quality,"cast",director,is_published,is_featured,is_trending,media_type,tmdb_id,popularity,first_air_date,created_at,updated_at';
+  'id,title,slug,description,poster_url,backdrop_url,video_url,direct_stream_url,video_type,subtitle_url,trailer_url,embed_url,embed_provider,provider,provider_asset_id,where_to_watch,genre,release_year,runtime,rating,quality,"cast",director,is_published,is_featured,is_trending,media_type,tmdb_id,popularity,first_air_date,created_at,updated_at';
 
 async function hydrate(rows: unknown): Promise<Movie[]> {
   const list = ((rows ?? []) as Movie[]).map((row) => ({

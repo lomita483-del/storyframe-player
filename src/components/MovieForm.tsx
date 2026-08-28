@@ -46,6 +46,7 @@ type FormState = {
   poster_url: string;
   backdrop_url: string;
   video_url: string;
+  direct_stream_url: string;
   video_type: string;
   subtitle_url: string;
   trailer_url: string;
@@ -74,6 +75,7 @@ function toForm(movie?: Movie | null): FormState {
     poster_url: movie?.poster_url ?? "",
     backdrop_url: movie?.backdrop_url ?? "",
     video_url: movie?.video_url ?? "",
+    direct_stream_url: movie?.direct_stream_url ?? "",
     video_type: movie?.video_type ?? "mp4",
     subtitle_url: movie?.subtitle_url ?? "",
     trailer_url: movie?.trailer_url ?? "",
@@ -122,7 +124,7 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
           next[field.key] = `${field.label} is required before publishing.`;
         }
       }
-      if (!form.video_url.trim() && !form.embed_url.trim()) {
+      if (!form.video_url.trim() && !form.embed_url.trim() && !form.direct_stream_url.trim()) {
         next['video_url'] = "Add an authorized video source or an embed URL before publishing.";
       }
       if (form.video_type === "hls" && form.video_url && !form.video_url.includes(".m3u8")) {
@@ -155,6 +157,7 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
         poster_url: form.poster_url.trim() || null,
         backdrop_url: form.backdrop_url.trim() || null,
         video_url: form.video_url.trim() || null,
+        direct_stream_url: form.direct_stream_url.trim() || null,
         video_type: form.video_type,
         subtitle_url: form.subtitle_url.trim() || null,
         trailer_url: form.trailer_url.trim() || null,
@@ -320,6 +323,18 @@ export function MovieForm({ movie }: { movie?: Movie | null }) {
             folder="subtitles"
             kind="subtitle"
           />
+        </Field>
+
+        <Field label="Full-length stream URL (.mp4 / .m3u8)" className="md:col-span-2">
+          <Input
+            value={form.direct_stream_url}
+            onChange={(event) => set("direct_stream_url", event.target.value)}
+            placeholder="https://cdn.example.com/feature/master.m3u8"
+          />
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Takes priority over every other source. Use direct links you own or are licensed to
+            distribute; the player falls back to the trailer when this is empty.
+          </p>
         </Field>
 
         <Field label="Trailer URL">

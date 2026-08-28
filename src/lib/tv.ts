@@ -23,6 +23,7 @@ export type Episode = {
   runtime: number | null;
   rating: number | null;
   video_url: string | null;
+  direct_stream_url: string | null;
   video_type: string;
   embed_url: string | null;
   embed_provider: string | null;
@@ -52,7 +53,7 @@ export const episodesQuery = (movieId?: string, seasonNumber?: number) =>
       const { data, error } = await supabase
         .from("episodes")
         .select(
-          "id,season_id,season_number,episode_number,name,overview,still_url,air_date,runtime,rating,video_url,video_type,embed_url,embed_provider,subtitle_url",
+          "id,season_id,season_number,episode_number,name,overview,still_url,air_date,runtime,rating,video_url,direct_stream_url,video_type,embed_url,embed_provider,subtitle_url",
         )
         .eq("movie_id", movieId!)
         .eq("season_number", seasonNumber!)
