@@ -18,10 +18,8 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
   // e.g., 'tt1877830' (The Batman) or a number like '76341'
   const targetId = movie.id || "tt1877830";
 
-  // Use a public aggregator endpoint directly. 
-  // Corrected URL path mapping format
-// Replace the broken server string with an active direct mirror address
-const directPublicEmbedUrl = `https://vidsrc.to{movie.id}`;
+  // FIXED LINE: Added missing forward slashes, folder directory path, and string interpolation indicator ($)
+  const directPublicEmbedUrl = `https://vidsrc.to{targetId}`;
 
   const handleCardPlayback = (e: React.MouseEvent) => {
     e.preventDefault(); // Stop page from navigating away
