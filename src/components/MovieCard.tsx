@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Play, Star } from "lucide-react";
+import { Play, Star, Loader2 } from "lucide-react";
 import type { Movie } from "@/lib/movies";
 import { cn } from "@/lib/utils";
+import { StreamingPlayer } from "./StreamingPlayer"; // Import your sandbox iframe player
 
 type Props = {
   movie: Movie;
@@ -10,10 +12,53 @@ type Props = {
 };
 
 export function MovieCard({ movie, className, progressPercent }: Props) {
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
+
+  const handleCardPlayback = async (e: React.MouseEvent) => {
+    // Stop the default router link navigation so we can handle the scrape action first
+    e.preventDefault();
+    setIsResolving(true);
+
+    try {
+      // 1. Request the direct streaming media resource from your private offshore backend server
+      // We pass the movie id or unique identifier to resolve the content
+      const response = await fetch(`https://your-private-server.com{movie.id}`);
+      const data = await response.json();
+
+      if (data.success && data.stream_url) {
+        // 2. Set the stream source if found, which renders the iframe player immediately
+        setStreamUrl(data.stream_url);
+      } else {
+        alert("Sourcing streaming channel nodes... Please try a different title link.");
+      }
+    } catch (err) {
+      console.error("Failed to map target media stream:", err);
+      alert("Streaming infrastructure offline. Check your private server connection status.");
+    } finally {
+      setIsResolving(false);
+    }
+  };
+
+  // If a streaming url is actively loaded into the state, render the video player frame layout
+  if (streamUrl) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black flex items-center justify-center p-4 md:p-8">
+        <StreamingPlayer 
+          src={streamUrl} 
+          title={movie.title} 
+          className="w-full max-w-5xl" 
+          onBack={() => setStreamUrl(null)} 
+        />
+      </div>
+    );
+  }
+
   return (
     <Link
       to="/movie/$slug"
       params={{ slug: movie.slug }}
+      onClick={handleCardPlayback} // Inject our custom intercept hook here
       className={cn(
         "group relative block w-[44vw] max-w-[190px] overflow-hidden rounded-2xl bg-surface outline-none transition-transform duration-500 ease-[var(--ease-cinema)] sm:w-[180px] md:w-[200px]",
         "focus-visible:ring-2 focus-visible:ring-ring hover:-translate-y-1",
@@ -48,9 +93,14 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
           )}
         </div>
 
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+        {/* Hover/Loading State Overlay Trigger */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-black/40">
           <span className="grid size-12 place-items-center rounded-full bg-primary/90 text-primary-foreground shadow-glow">
-            <Play className="size-5 fill-current" />
+            {isResolving ? (
+              <Loader2 className="size-5 animate-spin text-white" />
+            ) : (
+              <Play className="size-5 fill-current" />
+            )}
           </span>
         </div>
 
