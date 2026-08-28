@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           air_date: string | null
           created_at: string
+          direct_stream_url: string | null
           embed_provider: string | null
           embed_url: string | null
           episode_number: number
@@ -39,6 +40,7 @@ export type Database = {
         Insert: {
           air_date?: string | null
           created_at?: string
+          direct_stream_url?: string | null
           embed_provider?: string | null
           embed_url?: string | null
           episode_number: number
@@ -60,6 +62,7 @@ export type Database = {
         Update: {
           air_date?: string | null
           created_at?: string
+          direct_stream_url?: string | null
           embed_provider?: string | null
           embed_url?: string | null
           episode_number?: number
@@ -123,6 +126,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          direct_stream_url: string | null
           director: string | null
           embed_provider: string | null
           embed_url: string | null
@@ -160,6 +164,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          direct_stream_url?: string | null
           director?: string | null
           embed_provider?: string | null
           embed_url?: string | null
@@ -197,6 +202,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          direct_stream_url?: string | null
           director?: string | null
           embed_provider?: string | null
           embed_url?: string | null
