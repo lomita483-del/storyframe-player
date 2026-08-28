@@ -20,7 +20,8 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
 
   // Use a public aggregator endpoint directly. 
   // Corrected URL path mapping format
-const directPublicEmbedUrl = `https://vidsrc.xyz{targetId}`;
+// Replace the broken server string with an active direct mirror address
+const directPublicEmbedUrl = `https://vidsrc.to{movie.id}`;
 
   const handleCardPlayback = (e: React.MouseEvent) => {
     e.preventDefault(); // Stop page from navigating away
