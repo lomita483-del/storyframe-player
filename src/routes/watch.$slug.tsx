@@ -217,6 +217,7 @@ function WatchPage() {
    */
   const videoSrc =
     episode?.video_url ??
+    movie.direct_stream_url ??
     movie.video_url;
 
   const embed =
