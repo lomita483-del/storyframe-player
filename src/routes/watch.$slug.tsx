@@ -99,12 +99,19 @@ function WatchPage() {
 
   /*
    * 1. Dynamic Stream Extraction (/api/extract)
-   * Runs when no direct URL is configured in the database.
+   * Included 'title' parameter to support NetNaija, FzMovies & title-based fallback scrapers.
    */
   const { data: extractedStream } = useQuery({
-    queryKey: ["extracted-stream", movie?.tmdb_id, activeSeason, episodeParam, isShow],
+    queryKey: [
+      "extracted-stream",
+      movie?.tmdb_id,
+      movie?.title,
+      activeSeason,
+      episodeParam,
+      isShow,
+    ],
     enabled: Boolean(
-      movie?.tmdb_id &&
+      movie &&
         !episode?.direct_stream_url &&
         !episode?.video_url &&
         !movie?.direct_stream_url &&
@@ -112,8 +119,9 @@ function WatchPage() {
     ),
     queryFn: async () => {
       try {
+        const titleParam = encodeURIComponent(movie!.title);
         const res = await fetch(
-          `/api/extract?tmdbId=${movie!.tmdb_id}&type=${isShow ? "tv" : "movie"}&s=${activeSeason}&e=${episodeParam ?? 1}`
+          `/api/extract?tmdbId=${movie!.tmdb_id ?? ""}&title=${titleParam}&type=${isShow ? "tv" : "movie"}&s=${activeSeason}&e=${episodeParam ?? 1}`
         );
         if (!res.ok) return null;
         const data = await res.json();
