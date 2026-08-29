@@ -21,8 +21,26 @@ export async function fetchAutoStreamUrl(
     params.set("season", season.toString());
     params.set("episode", episode.toString());
 
-    const res = await fetch(`/api/scrape-source?${params.toString()}`);
-    if (!res.ok) return null;
+    // Resolve base path safely for both Client-Side and Server-Side Rendering
+    const baseUrl =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000";
+
+    const endpoint = `${baseUrl}/api/scrape-source?${params.toString()}`;
+
+    const res = await fetch(endpoint, {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      console.warn(`[streamResolver] API returned status ${res.status}`);
+      return null;
+    }
 
     const data = await res.json();
     if (data?.url) {
