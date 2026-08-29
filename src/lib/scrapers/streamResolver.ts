@@ -14,26 +14,14 @@ export async function fetchAutoStreamUrl(
   if (!tmdbId && !title) return null;
 
   try {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const params = new URLSearchParams();
+    if (tmdbId) params.set("tmdbId", tmdbId.toString());
+    if (title) params.set("query", title);
+    params.set("type", type);
+    params.set("season", season.toString());
+    params.set("episode", episode.toString());
 
-    if (!supabaseUrl || !anonKey) return null;
-
-    const res = await fetch(`${supabaseUrl}/functions/v1/scrape-source`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${anonKey}`,
-      },
-      body: JSON.stringify({
-        tmdbId: tmdbId?.toString() || "",
-        query: title || "",
-        type,
-        season: season.toString(),
-        episode: episode.toString(),
-      }),
-    });
-
+    const res = await fetch(`/api/scrape-source?${params.toString()}`);
     if (!res.ok) return null;
 
     const data = await res.json();
@@ -45,7 +33,7 @@ export async function fetchAutoStreamUrl(
       };
     }
   } catch (err) {
-    console.error("[streamResolver] Execution error:", err);
+    console.error("[streamResolver] Scraper request failed:", err);
   }
 
   return null;
