@@ -2,6 +2,9 @@ import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { hydrateMediaRefs, parseWhereToWatch, type WhereToWatchLink } from "@/lib/media";
 
+// Add your TMDB API key here (or read from import.meta.env.VITE_TMDB_API_KEY)
+const TMDB_API_KEY = "YOUR_TMDB_API_KEY"; 
+
 export type Movie = {
   id: string;
   title: string;
@@ -93,13 +96,59 @@ export const publishedMoviesQuery = () =>
   queryOptions({
     queryKey: ["movies", "published"],
     queryFn: async (): Promise<Movie[]> => {
-      const { data, error } = await supabase
-        .from("movies")
-        .select(MOVIE_FIELDS)
-        .eq("is_published", true)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return hydrate(data);
+      try {
+        // Fetch trending movies across ALL genres from TMDB
+        const res = await fetch(
+          `https://api.themoviedb.org/3/trending/movie/day?api_key=${TMDB_API_KEY}`
+        );
+        if (!res.ok) throw new Error("TMDB fetch failed");
+        
+        const data = await res.json();
+        
+        return data.results.map((item: any) => ({
+          id: String(item.id),
+          tmdb_id: item.id,
+          title: item.title || item.original_title,
+          slug: slugify(item.title || item.original_title),
+          description: item.overview || null,
+          poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+          backdrop_url: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
+          video_url: null,
+          direct_stream_url: null,
+          video_type: "hls",
+          subtitle_url: null,
+          trailer_url: null,
+          embed_url: `https://vidsrc.xyz/embed/movie?tmdb=${item.id}`,
+          embed_provider: "vidsrc",
+          provider: null,
+          provider_asset_id: null,
+          where_to_watch: [],
+          genre: "Trending",
+          release_year: item.release_date ? Number(item.release_date.split("-")[0]) : null,
+          runtime: null,
+          rating: item.vote_average ? Number(item.vote_average.toFixed(1)) : null,
+          quality: "HD",
+          cast: [],
+          director: null,
+          is_published: true,
+          is_featured: false,
+          is_trending: true,
+          media_type: "movie",
+          popularity: item.popularity || null,
+          first_air_date: item.release_date || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }));
+      } catch (err) {
+        // Fallback to Supabase if live TMDB fetch encounters an issue
+        const { data, error } = await supabase
+          .from("movies")
+          .select(MOVIE_FIELDS)
+          .eq("is_published", true)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return hydrate(data);
+      }
     },
   });
 
@@ -157,7 +206,6 @@ export const searchMoviesQuery = (term: string) =>
       }
       return hydrate([...merged.values()]);
     },
-
   });
 
 /* ---------------- admin ---------------- */
