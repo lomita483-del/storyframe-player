@@ -66,7 +66,7 @@ export async function syncCatalogue(): Promise<SyncResult> {
   const [movieGenres, tvGenres] = await Promise.all([genreMap("movie"), genreMap("tv")]);
 
   const lists: { path: string; type: "movie" | "tv"; trending: boolean }[] = [
-    { path: "/trending/movie/week", type: "movie", trending: true },
+    { path: "/trending/movie/day", type: "movie", trending: true },
     { path: "/trending/tv/week", type: "tv", trending: true },
     { path: "/movie/popular", type: "movie", trending: false },
     { path: "/tv/popular", type: "tv", trending: false },
