@@ -28,7 +28,7 @@ type Level = { index: number; label: string };
 
 type Props = {
   src: string;
-  type: string;
+  type?: string | undefined;
   title: string;
   poster?: string | undefined;
   subtitleUrl?: string | undefined;
@@ -74,6 +74,7 @@ export function VideoPlayer({
   const [controlsVisible, setControlsVisible] = useState(true);
   const [levels, setLevels] = useState<Level[]>([]);
   const [level, setLevel] = useState("-1");
+  const [playbackRate, setPlaybackRate] = useState("1");
   const [subtitlesOn, setSubtitlesOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,6 +206,13 @@ export function VideoPlayer({
     if (hlsRef.current) hlsRef.current.currentLevel = Number(value);
   }
 
+  function handleSpeedChange(rate: string) {
+    setPlaybackRate(rate);
+    if (videoRef.current) {
+      videoRef.current.playbackRate = parseFloat(rate);
+    }
+  }
+
   function toggleSubtitles() {
     const video = videoRef.current;
     if (!video) return;
@@ -240,6 +248,7 @@ export function VideoPlayer({
           const video = event.currentTarget;
           setDuration(video.duration || 0);
           setReady(true);
+          video.playbackRate = parseFloat(playbackRate);
           if (!seekedToStart.current && startAt > 5 && startAt < (video.duration || 0) - 10) {
             video.currentTime = startAt;
           }
@@ -341,7 +350,6 @@ export function VideoPlayer({
             <RotateCw className="size-4.5" />
           </ControlButton>
 
-
           <div className="ml-1 flex items-center gap-2">
             <ControlButton
               label={muted ? "Unmute" : "Mute"}
@@ -382,29 +390,41 @@ export function VideoPlayer({
               </ControlButton>
             )}
 
-            {levels.length > 1 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    aria-label="Playback quality"
-                    className="grid size-9 place-items-center rounded-full text-white/85 transition-colors hover:bg-white/15"
-                  >
-                    <Settings className="size-5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Quality</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup value={level} onValueChange={applyLevel}>
-                    <DropdownMenuRadioItem value="-1">Auto</DropdownMenuRadioItem>
-                    {levels.map((l) => (
-                      <DropdownMenuRadioItem key={l.index} value={String(l.index)}>
-                        {l.label}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            {/* Combined Settings Menu: Speed & Quality */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-label="Settings"
+                  className="grid size-9 place-items-center rounded-full text-white/85 transition-colors hover:bg-white/15"
+                >
+                  <Settings className="size-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuLabel>Playback Speed</DropdownMenuLabel>
+                <DropdownMenuRadioGroup value={playbackRate} onValueChange={handleSpeedChange}>
+                  <DropdownMenuRadioItem value="0.5">0.5x</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="1">Normal (1x)</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="1.25">1.25x</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="1.5">1.5x</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="2">2x</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+
+                {levels.length > 1 && (
+                  <>
+                    <DropdownMenuLabel className="mt-2">Quality</DropdownMenuLabel>
+                    <DropdownMenuRadioGroup value={level} onValueChange={applyLevel}>
+                      <DropdownMenuRadioItem value="-1">Auto</DropdownMenuRadioItem>
+                      {levels.map((l) => (
+                        <DropdownMenuRadioItem key={l.index} value={String(l.index)}>
+                          {l.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {pipSupported && (
               <ControlButton label="Picture in picture" onClick={() => void togglePip()}>
