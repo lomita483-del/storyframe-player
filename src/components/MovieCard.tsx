@@ -15,14 +15,14 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
 
   const tmdbId = movie.tmdb_id ? String(movie.tmdb_id) : (movie.id || "");
   const isTv = movie.media_type === "tv";
-
-  // Using SmashyStream to pass outer sandbox security checks in Lovable
   const streamUrl = isTv
-    ? `https://player.smashy.stream/tv/${tmdbId}?s=1&e=1`
-    : `https://player.smashy.stream/movie/${tmdbId}`;
+    ? `https://www.2embed.cc/embedtv/${tmdbId}?s=1&e=1`
+    : `https://www.2embed.cc/embed/${tmdbId}`;
 
-  const handleCardPlayback = (e: React.MouseEvent) => {
+  // Dedicated play handler for the hover play button only
+  const handleQuickPlay = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevents navigating to details page when clicking play icon
     if (!tmdbId) return;
     setIsPlaying(true);
   };
@@ -32,7 +32,6 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
       <Link
         to="/movie/$slug"
         params={{ slug: movie.slug }}
-        onClick={handleCardPlayback}
         className={cn(
           "group relative block w-[44vw] max-w-[190px] overflow-hidden rounded-2xl bg-surface outline-none transition-transform duration-500 ease-[var(--ease-cinema)] sm:w-[180px] md:w-[200px]",
           "focus-visible:ring-2 focus-visible:ring-ring hover:-translate-y-1",
@@ -67,10 +66,16 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
             )}
           </div>
 
+          {/* Quick Play Button: Triggers modal without breaking link navigation */}
           <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-black/40">
-            <span className="grid size-12 place-items-center rounded-full bg-primary/90 text-primary-foreground shadow-glow">
+            <button
+              onClick={handleQuickPlay}
+              type="button"
+              aria-label={`Play ${movie.title}`}
+              className="grid size-12 place-items-center rounded-full bg-primary/90 text-primary-foreground shadow-glow hover:scale-110 transition-transform"
+            >
               <Play className="size-5 fill-current" />
-            </span>
+            </button>
           </div>
 
           {progressPercent != null && progressPercent > 0 && (
@@ -89,11 +94,11 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
         </div>
       </Link>
 
-      {/* Stream Modal */}
+      {/* Stream Modal with Mobile & Fullscreen Optimizations */}
       {isPlaying && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-4 backdrop-blur-md">
-          <div className="relative w-full max-w-5xl overflow-hidden rounded-2xl bg-black border border-white/10 shadow-2xl">
-            <div className="flex items-center justify-between bg-zinc-900 px-4 py-2 border-b border-white/10">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-2 sm:p-4 backdrop-blur-md">
+          <div className="relative flex h-full max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-black border border-white/10 shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between bg-zinc-900 px-4 py-2.5 border-b border-white/10">
               <span className="text-xs font-medium text-muted-foreground truncate max-w-[70%]">
                 Now Playing: {movie.title}
               </span>
@@ -102,7 +107,7 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
                   href={streamUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-xs text-white transition hover:bg-white/20"
+                  className="flex items-center gap-1 rounded-md bg-white/10 px-2.5 py-1 text-xs text-white transition hover:bg-white/20"
                 >
                   <ExternalLink className="size-3.5" />
                   Open Direct
@@ -116,13 +121,13 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
               </div>
             </div>
 
-            <div className="relative aspect-video w-full bg-black">
+            <div className="relative aspect-video w-full flex-1 bg-black">
               <iframe
                 src={streamUrl}
                 title={movie.title}
                 className="h-full w-full border-0"
                 allowFullScreen
-                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen; screen-wake-lock; display-capture"
               />
             </div>
           </div>
