@@ -81,14 +81,9 @@ function WatchPage() {
     seasonsQuery(isShow ? movie?.id : undefined),
   );
 
-  /*
-   * Keep the selected season from the URL.
-   *
-   * If no season is supplied, use the first available season.
-   */
   const seasonNumber =
     seasonParam ??
-    seasons?.[0]?.season_number;
+    seasons?.[0]?.season_number ?? 1;
 
   const { data: episodes } = useQuery(
     episodesQuery(
@@ -97,27 +92,14 @@ function WatchPage() {
     ),
   );
 
-  /*
-   * Keep the selected episode from the URL.
-   *
-   * Example:
-   * /watch/show-name?s=2&e=5
-   */
+  const episodeNumber = episodeParam ?? 1;
+
   const episode =
     (episodes ?? []).find(
       (row) =>
-        row.episode_number ===
-        (episodeParam ?? 1),
+        row.episode_number === episodeNumber,
     ) ?? null;
 
-  /*
-   * Resume playback for directly hosted/licensed
-   * video files.
-   *
-   * Iframe embeds generally cannot expose playback
-   * position to the parent application because of
-   * browser cross-origin restrictions.
-   */
   const { data: resume } = useQuery({
     queryKey: [
       "resume",
@@ -188,16 +170,7 @@ function WatchPage() {
     throw notFound();
   }
 
-  /*
-   * For TV:
-   *
-   * Episode embed URL has priority.
-   * If an episode does not have one, fall back
-   * to the show's authorized embed URL.
-   *
-   * For movies:
-   * Use the movie's authorized embed URL.
-   */
+  // 1. Check for manual provider embed in DB
   const providerEmbed = episode
     ? embedSrc(
         episode.embed_provider,
@@ -212,17 +185,23 @@ function WatchPage() {
         movie.embed_url,
       );
 
-  /*
-   * Direct video fallback.
-   */
+  // 2. Direct MP4 / stream URLs
   const videoSrc =
     episode?.video_url ??
     movie.direct_stream_url ??
     movie.video_url;
 
+  // 3. Dynamic TMDB Embed Fallback (2Embed)
+  const tmdbId = movie.tmdb_id ? String(movie.tmdb_id) : (movie.id || "");
+  const dynamicEmbedUrl = isShow
+    ? `https://www.2embed.cc/embedtv/${tmdbId}?s=${seasonNumber}&e=${episodeNumber}`
+    : `https://www.2embed.cc/embed/${tmdbId}`;
+
+  // Final Embed Priority: Custom DB Embed -> Archive Embed -> Dynamic TMDB Embed
   const embed =
     providerEmbed ??
-    archiveEmbedSrc(videoSrc);
+    archiveEmbedSrc(videoSrc) ??
+    (tmdbId ? dynamicEmbedUrl : null);
 
   const videoType =
     episode?.video_url
@@ -260,7 +239,7 @@ function WatchPage() {
         </Button>
 
         {/* =========================
-            AUTHORIZED EMBED PLAYER
+            AUTHORIZED / DYNAMIC EMBED PLAYER
             ========================= */}
         {embed ? (
           <EmbedPlayer
