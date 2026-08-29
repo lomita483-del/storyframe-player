@@ -13,7 +13,7 @@ import { archiveEmbedSrc, embedSrc } from "@/lib/media";
 import { episodesQuery, seasonsQuery } from "@/lib/tv";
 import { z } from "zod";
 import { VideoPlayer } from "@/components/VideoPlayer";
-import { StreamingPlayer } from "@/components/StreamingPlayer";
+import { EmbedPlayer } from "@/components/EmbedPlayer";
 import { WatchlistButton } from "@/components/WatchlistButton";
 import { Button } from "@/components/ui/button";
 
@@ -263,7 +263,7 @@ function WatchPage() {
             AUTHORIZED EMBED PLAYER
             ========================= */}
         {embed ? (
-          <StreamingPlayer
+          <EmbedPlayer
             src={embed}
             title={`${heading} player`}
             onBack={() => {
