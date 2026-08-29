@@ -1,5 +1,3 @@
-// src/routes/watch.$slug.tsx
-
 import { createFileRoute, notFound, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -9,6 +7,7 @@ import { seasonsQuery, episodesQuery } from "@/lib/tv";
 import { archiveEmbedSrc, embedSrc } from "@/lib/media";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 type WatchSearch = { s?: number | undefined; e?: number | undefined };
 
@@ -43,7 +42,7 @@ function WatchPage() {
     return episodes.find((item) => item.episode_number === (episodeNumber ?? 1)) ?? episodes[0]!;
   }, [episodes, episodeNumber, isShow]);
 
-  // Extract direct stream dynamic m3u8 URL if direct link isn't provided in DB
+  // Invoke Supabase Edge Function to extract m3u8 stream
   const { data: extractedStream } = useQuery({
     queryKey: ["extracted-stream", movie?.tmdb_id, activeSeason, episodeNumber, isShow],
     enabled: Boolean(
@@ -55,12 +54,19 @@ function WatchPage() {
     ),
     queryFn: async () => {
       try {
-        const res = await fetch(
-          `/api/extract?tmdbId=${movie!.tmdb_id}&type=${isShow ? "tv" : "movie"}&s=${activeSeason}&e=${episodeNumber ?? 1}`
-        );
-        if (!res.ok) return null;
-        const data = await res.json();
-        return (data.streamUrl as string) ?? null;
+        const { data, error } = await supabase.functions.invoke("extract-stream", {
+          method: "GET",
+          headers: {},
+          queryParams: {
+            tmdbId: String(movie!.tmdb_id),
+            type: isShow ? "tv" : "movie",
+            s: String(activeSeason),
+            e: String(episodeNumber ?? 1),
+          },
+        });
+
+        if (error || !data?.streamUrl) return null;
+        return data.streamUrl as string;
       } catch {
         return null;
       }
@@ -77,7 +83,7 @@ function WatchPage() {
 
   if (!movie) throw notFound();
 
-  /* Native source hierarchy: DB File -> Scraped m3u8 -> Fallback to Iframe */
+  /* Hierarchy: DB Link -> Scraped Edge Function Stream -> Iframe Fallback */
   const nativeSrc =
     episode?.direct_stream_url ??
     episode?.video_url ??
@@ -136,6 +142,7 @@ function WatchPage() {
                 className="h-full w-full border-0"
                 allowFullScreen
                 allow="autoplay; encrypted-media; picture-in-picture"
+                sandbox="allow-scripts allow-same-origin allow-forms"
               />
             </div>
           )}
