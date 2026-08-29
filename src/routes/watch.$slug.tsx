@@ -17,12 +17,7 @@ import {
   seasonsQuery,
   episodesQuery,
 } from "@/lib/tv";
-import {
-  archiveEmbedSrc,
-  embedSrc,
-} from "@/lib/media";
 import { VideoPlayer } from "@/components/VideoPlayer";
-import { StreamingPlayer } from "@/components/StreamingPlayer";
 import { cn } from "@/lib/utils";
 import { fetchAutoStreamUrl } from "@/lib/scrapers/streamResolver";
 
@@ -101,9 +96,9 @@ function WatchPage() {
   const activeEpisodeNumber = episode?.episode_number ?? episodeParam ?? 1;
 
   /*
-   * 1. Dynamic Client-Side Stream Extraction (MovieBox Style)
+   * Direct Stream Extraction (MovieBox Style Scraper)
    */
-  const { data: autoStream } = useQuery({
+  const { data: autoStream, isLoading: isExtractingStream } = useQuery({
     queryKey: [
       "auto-stream-resolver",
       movie?.tmdb_id,
@@ -127,7 +122,7 @@ function WatchPage() {
         activeSeason,
         activeEpisodeNumber
       ),
-    staleTime: 1000 * 60 * 30, // Cache active stream for 30 minutes
+    staleTime: 1000 * 60 * 30, // Cache resolved URL for 30 mins
   });
 
   if (isLoading) {
@@ -143,7 +138,7 @@ function WatchPage() {
   }
 
   /*
-   * 2. Stream Priority Evaluation
+   * Priority: Database Stream URL -> Scraped Direct Stream URL
    */
   const activeDirectStream =
     episode?.direct_stream_url ??
@@ -162,24 +157,6 @@ function WatchPage() {
     episode?.subtitle_url ??
     movie?.subtitle_url ??
     undefined;
-
-  /*
-   * 3. Fallback Iframe Embed Source (Fixed ?s= Query String)
-   */
-  const iframeSource =
-    embedSrc(
-      episode?.embed_provider ??
-        movie.embed_provider,
-      episode?.embed_url ??
-        movie.embed_url,
-    ) ??
-    archiveEmbedSrc(
-      episode?.video_url ??
-        movie.video_url,
-    ) ??
-    (isShow
-      ? `https://www.2embed.cc/embedtv/${movie.tmdb_id}?s=${activeSeason}&e=${activeEpisodeNumber}`
-      : `https://www.2embed.cc/embed/${movie.tmdb_id}`);
 
   const title = episode
     ? `${movie.title} — S${activeSeason}:E${episode.episode_number}${
@@ -203,9 +180,10 @@ function WatchPage() {
           Back
         </Link>
 
-        {/* PLAYER SECTION */}
+        {/* PLAYER CONTAINER */}
         <div className="mt-3">
           {activeDirectStream ? (
+            /* 1. Native Direct Video Player (Custom Controls, Subtitles, 0 Ads) */
             <VideoPlayer
               src={activeDirectStream}
               type={directVideoType}
@@ -224,22 +202,25 @@ function WatchPage() {
                 });
               }}
             />
-          ) : iframeSource ? (
-            <StreamingPlayer
-              src={iframeSource}
-              title={title}
-              onBack={() => {
-                window.history.back();
-              }}
-            />
+          ) : isExtractingStream ? (
+            /* 2. Extraction In Progress Indicator */
+            <div className="grid aspect-video w-full place-items-center overflow-hidden rounded-2xl bg-black/80 border border-white/10 md:rounded-3xl">
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 className="size-8 animate-spin text-primary" />
+                <p className="text-sm font-medium text-white/70">
+                  Resolving direct stream URL...
+                </p>
+              </div>
+            </div>
           ) : (
-            <div className="grid aspect-video w-full place-items-center overflow-hidden rounded-2xl bg-black md:rounded-3xl">
+            /* 3. Empty State (No Iframes) */
+            <div className="grid aspect-video w-full place-items-center overflow-hidden rounded-2xl bg-black/80 border border-white/10 md:rounded-3xl">
               <div className="max-w-md px-6 text-center">
                 <p className="text-base font-semibold text-white">
-                  No playable source
+                  No Direct Stream Found
                 </p>
                 <p className="mt-2 text-sm text-white/60">
-                  This title has metadata, but no video stream could be loaded.
+                  Direct media files could not be extracted for this title.
                 </p>
 
                 {movie.where_to_watch && movie.where_to_watch.length > 0 && (
