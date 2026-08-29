@@ -10,17 +10,15 @@ type Props = {
 };
 
 export function MovieCard({ movie, className, progressPercent }: Props) {
-  // Extract real TMDB ID (or fallback to empty string so it doesn't force a hardcoded thriller)
-  const tmdbId = movie.id ? String(movie.id) : "";
+  // Use tmdb_id first; fall back to movie.id if tmdb_id isn't available
+  const tmdbId = movie.tmdb_id ? String(movie.tmdb_id) : (movie.id || "");
 
   const handleCardPlayback = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!tmdbId) return;
 
-    // Direct playback endpoint stream
+    // Load full movie stream using the movie's TMDB ID
     const destinationPath = `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}`;
-    
-    // Opens stream
     window.open(destinationPath, "_blank", "noopener,noreferrer");
   };
 
