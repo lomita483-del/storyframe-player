@@ -1,11 +1,3 @@
-export type DirectStreamResult = {
-  url: string;
-  type: "hls" | "mp4";
-};
-
-/**
- * Searches and extracts direct media (.mp4 / .m3u8) links.
- */
 export async function fetchAutoStreamUrl(
   tmdbId?: number,
   title?: string,
@@ -16,17 +8,23 @@ export async function fetchAutoStreamUrl(
   if (!tmdbId && !title) return null;
 
   const fetchers = [
-    // 1. Scraping NetNaija / Nkiri / FzMovies via Serverless Scraper API
+    // 1. Scrape with TV-specific query formatting
     async () => {
       if (!title) return null;
-      const cleanTitle = encodeURIComponent(title.toLowerCase().trim());
+
+      // Format season/episode: S01E01 style
+      const formattedSeason = String(season).padStart(2, "0");
+      const formattedEpisode = String(episode).padStart(2, "0");
       
-      // Target your serverless API route or proxy extractor
-      const targetUrl = `/api/scrape-source?title=${cleanTitle}&type=${type}&s=${season}&e=${episode}`;
-      
+      const searchQuery = type === "tv"
+        ? `${title} S${formattedSeason}E${formattedEpisode}`
+        : title;
+
+      const targetUrl = `/api/scrape-source?query=${encodeURIComponent(searchQuery)}&type=${type}&s=${season}&e=${episode}`;
+
       const res = await fetch(targetUrl);
       if (!res.ok) return null;
-      
+
       const data = await res.json();
       if (data?.downloadUrl) {
         return {
@@ -37,7 +35,7 @@ export async function fetchAutoStreamUrl(
       return null;
     },
 
-    // 2. Fallback Direct Stream API (AutoEmbed Stream Endpoint)
+    // 2. Direct HLS Fallback API (AutoEmbed Stream Endpoint)
     async () => {
       if (!tmdbId) return null;
       const target =
@@ -47,10 +45,10 @@ export async function fetchAutoStreamUrl(
 
       const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(target)}`);
       if (!res.ok) return null;
-      
+
       const data = await res.json();
       const streamUrl = data?.file || data?.url || data?.sources?.[0]?.file;
-      
+
       if (streamUrl) {
         return {
           url: streamUrl,
