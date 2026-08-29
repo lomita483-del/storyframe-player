@@ -3,6 +3,9 @@ export type DirectStreamResult = {
   type: "hls" | "mp4";
 };
 
+/**
+ * Searches and extracts direct media (.mp4 / .m3u8) links.
+ */
 export async function fetchAutoStreamUrl(
   tmdbId?: number,
   title?: string,
@@ -13,31 +16,30 @@ export async function fetchAutoStreamUrl(
   if (!tmdbId && !title) return null;
 
   const fetchers = [
-    // 1. Scraping / Extracting via backend/CORS-proxied endpoint for custom sites
+    // 1. Scraping NetNaija / Nkiri / FzMovies via Serverless Scraper API
     async () => {
       if (!title) return null;
-      const formattedTitle = encodeURIComponent(title.toLowerCase());
+      const cleanTitle = encodeURIComponent(title.toLowerCase().trim());
       
-      // Hit your Serverless API route or custom CORS proxy scraper
-      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(
-        `https://your-backend-scraper-api.com/extract?query=${formattedTitle}&type=${type}&s=${season}&e=${episode}`
-      )}`;
-
-      const res = await fetch(proxyUrl);
+      // Target your serverless API route or proxy extractor
+      const targetUrl = `/api/scrape-source?title=${cleanTitle}&type=${type}&s=${season}&e=${episode}`;
+      
+      const res = await fetch(targetUrl);
       if (!res.ok) return null;
+      
       const data = await res.json();
-
-      if (data?.streamUrl) {
+      if (data?.downloadUrl) {
         return {
-          url: data.streamUrl,
-          type: data.streamUrl.includes(".m3u8") ? ("hls" as const) : ("mp4" as const),
+          url: data.downloadUrl,
+          type: data.downloadUrl.includes(".m3u8") ? ("hls" as const) : ("mp4" as const),
         };
       }
       return null;
     },
 
-    // 2. Direct HLS/MP4 API Resolver
+    // 2. Fallback Direct Stream API (AutoEmbed Stream Endpoint)
     async () => {
+      if (!tmdbId) return null;
       const target =
         type === "tv"
           ? `https://autoembed.cc/api/get/tv?id=${tmdbId}&s=${season}&e=${episode}`
@@ -45,6 +47,7 @@ export async function fetchAutoStreamUrl(
 
       const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(target)}`);
       if (!res.ok) return null;
+      
       const data = await res.json();
       const streamUrl = data?.file || data?.url || data?.sources?.[0]?.file;
       
