@@ -1,9 +1,7 @@
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Play, Star } from "lucide-react";
 import type { Movie } from "@/lib/movies";
 import { cn } from "@/lib/utils";
-import { StreamingPlayer } from "./StreamingPlayer"; // Import your sandbox iframe player
 
 type Props = {
   movie: Movie;
@@ -12,36 +10,7 @@ type Props = {
 };
 
 export function MovieCard({ movie, className, progressPercent }: Props) {
-  const [isPlaying, setIsPlaying] = useState(false);
 
-  // Fallback placeholder ID if movie.id is missing or isn't a clean TMDb/IMDb ID
-  const targetId = movie.id || "tt1877830";
-
-  // BYPASS: This is the Base64 scrambled version of "https://vidsrc.to"
-  // It completely bypasses Lovable's AI code blocking filters.
-  const obfuscatedBaseUrl = "aHR0cHM6Ly92aWRzcmMudG8vZW1iZWQvbW92aWUv";
-  
-  // Combine the safely decoded string path directly with your dynamic target movie ID variable
-  const directPublicEmbedUrl = window.atob(obfuscatedBaseUrl) + targetId;
-
-  const handleCardPlayback = (e: React.MouseEvent) => {
-    e.preventDefault(); // Stop page from navigating away
-    setIsPlaying(true);  // Load player overlay instantly
-  };
-
-  // Render the video player container directly inside your frontend viewport
-  if (isPlaying) {
-    return (
-      <div className="fixed inset-0 z-50 bg-black flex items-center justify-center p-4 md:p-8 animate-fade-in">
-        <StreamingPlayer 
-          src={directPublicEmbedUrl} 
-          title={movie.title} 
-          className="w-full h-full max-w-5xl" 
-          onBack={() => setIsPlaying(false)} 
-        />
-      </div>
-    );
-  }
 
   return (
     <Link
