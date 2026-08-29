@@ -10,18 +10,17 @@ type Props = {
 };
 
 export function MovieCard({ movie, className, progressPercent }: Props) {
-  // Fallback target query integer ID matching a verified database parameter code if movie.id is missing
-  const targetId = movie.id || "533535";
+  // Extract real TMDB ID (or fallback to empty string so it doesn't force a hardcoded thriller)
+  const tmdbId = movie.id ? String(movie.id) : "";
 
   const handleCardPlayback = (e: React.MouseEvent) => {
-    e.preventDefault(); // Stop standard router engine internal transitions
+    e.preventDefault();
+    if (!tmdbId) return;
+
+    // Direct playback endpoint stream
+    const destinationPath = `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}`;
     
-    // SCRAMBLED STACK MATRIX
-    // Hidden array characters that form the direct playback endpoint link on runtime
-    const chars = ["h", "t", "t", "p", "s", ":", "/", "/", "v", "i", "d", "s", "r", "c", ".", "x", "y", "z", "/", "e", "m", "b", "e", "d", "/", "m", "o", "v", "i", "e", "?", "t", "m", "d", "b", "="];
-    const destinationPath = chars.join("") + targetId;
-    
-    // Launch an independent web overlay browser screen window directly outside of Lovable's compiler sandbox boundaries
+    // Opens stream
     window.open(destinationPath, "_blank", "noopener,noreferrer");
   };
 
@@ -29,7 +28,7 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
     <Link
       to="/movie/$slug"
       params={{ slug: movie.slug }}
-      onClick={handleCardPlayback} // Inject our native external link popup trigger command hook
+      onClick={handleCardPlayback}
       className={cn(
         "group relative block w-[44vw] max-w-[190px] overflow-hidden rounded-2xl bg-surface outline-none transition-transform duration-500 ease-[var(--ease-cinema)] sm:w-[180px] md:w-[200px]",
         "focus-visible:ring-2 focus-visible:ring-ring hover:-translate-y-1",
@@ -82,7 +81,7 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
 
       <div className="px-1 pb-1 pt-2.5">
         <h3 className="truncate text-sm font-semibold">{movie.title}</h3>
-        <p className="truncate text-xs text-muted-foreground">{movie.genre ?? "Uncategorised"}</p>
+        <p className="truncate text-xs text-muted-foreground">{movie.genre ?? "Movie"}</p>
       </div>
     </Link>
   );
