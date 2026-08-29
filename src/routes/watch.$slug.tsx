@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import React, { useEffect, useState, useRef } from 'react';
 import { ArrowLeft, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import Hls from 'hls.js';
-import { fetchAutoStreamUrl, DirectStreamResult } from '@/lib/streamResolver';
+import { fetchAutoStreamUrl, DirectStreamResult } from '@/lib/scrapers/streamResolver';
 
 export const Route = createFileRoute('/watch/$slug')({
   component: WatchPage,
@@ -17,7 +17,7 @@ function WatchPage() {
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Parse human title and TMDB ID from slug (e.g., "leviticus-1564614")
+  // Extract human-readable title and TMDB ID from slug (e.g., "leviticus-1564614")
   const parseSlug = (slugStr: string) => {
     const parts = slugStr.split('-');
     const possibleId = parseInt(parts[parts.length - 1], 10);
@@ -63,7 +63,7 @@ function WatchPage() {
     };
   }, [slug, tmdbId, title]);
 
-  // Video Element Engine (HLS, MP4, WebTorrent Magnet Playback)
+  // Video playback engine (HLS, MP4 & WebTorrent Magnet support)
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !stream) return;
@@ -82,7 +82,6 @@ function WatchPage() {
     } else if (stream.type === 'mp4') {
       video.src = stream.url;
     } else if (stream.type === 'torrent') {
-      // Safe dynamic browser instantiation for WebTorrent in TanStack Start
       if (typeof window !== 'undefined' && (window as any).WebTorrent) {
         torrentClient = new (window as any).WebTorrent();
         torrentClient.add(stream.url, (torrent: any) => {
@@ -104,7 +103,7 @@ function WatchPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-white p-4 max-w-7xl mx-auto">
-      {/* Top Navigation */}
+      {/* Top Header Controls */}
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={() => navigate({ to: '/' })}
@@ -120,7 +119,7 @@ function WatchPage() {
         )}
       </div>
 
-      {/* Main Viewport */}
+      {/* Main Video Viewport */}
       <div className="relative aspect-video w-full bg-neutral-900/80 rounded-2xl overflow-hidden border border-neutral-800 shadow-2xl flex items-center justify-center">
         {loading && (
           <div className="flex flex-col items-center gap-3 text-center p-6">
@@ -152,7 +151,7 @@ function WatchPage() {
         )}
       </div>
 
-      {/* Metadata Info */}
+      {/* Media Info */}
       <div className="mt-6">
         <h1 className="text-2xl font-bold">{title}</h1>
         <p className="text-xs text-neutral-400 mt-1">
