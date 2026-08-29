@@ -17,9 +17,7 @@ export async function fetchAutoStreamUrl(
 
   try {
     const { data, error } = await supabase.functions.invoke("scrape-source", {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      queryParams: {
+      body: {
         tmdbId: tmdbId?.toString() || "",
         query: title || "",
         type,
@@ -28,7 +26,10 @@ export async function fetchAutoStreamUrl(
       },
     });
 
-    if (error || !data?.url) return null;
+    if (error || !data?.url) {
+      console.warn("[streamResolver] No stream returned from Edge Function:", error);
+      return null;
+    }
 
     return {
       url: data.url,
@@ -36,7 +37,7 @@ export async function fetchAutoStreamUrl(
       provider: data.provider || "Direct Stream",
     };
   } catch (err) {
-    console.error("[streamResolver] Supabase edge function call failed:", err);
+    console.error("[streamResolver] Supabase Edge Function execution failed:", err);
     return null;
   }
 }
