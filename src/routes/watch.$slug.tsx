@@ -1,3 +1,5 @@
+// src/routes/watch.$slug.tsx
+
 import { createFileRoute, notFound, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -41,8 +43,7 @@ function WatchPage() {
     return episodes.find((item) => item.episode_number === (episodeNumber ?? 1)) ?? episodes[0]!;
   }, [episodes, episodeNumber, isShow]);
 
-  // --- STEP 3 EXTRACTION HOOK ---
-  // If no native database URL exists, extract the direct m3u8 stream from your backend scraper API
+  // Extract direct stream dynamic m3u8 URL if direct link isn't provided in DB
   const { data: extractedStream } = useQuery({
     queryKey: ["extracted-stream", movie?.tmdb_id, activeSeason, episodeNumber, isShow],
     enabled: Boolean(
@@ -53,12 +54,16 @@ function WatchPage() {
         !movie?.video_url
     ),
     queryFn: async () => {
-      const res = await fetch(
-        `/api/extract?tmdbId=${movie!.tmdb_id}&type=${isShow ? "tv" : "movie"}&s=${activeSeason}&e=${episodeNumber ?? 1}`
-      );
-      if (!res.ok) return null;
-      const data = await res.json();
-      return (data.streamUrl as string) ?? null;
+      try {
+        const res = await fetch(
+          `/api/extract?tmdbId=${movie!.tmdb_id}&type=${isShow ? "tv" : "movie"}&s=${activeSeason}&e=${episodeNumber ?? 1}`
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        return (data.streamUrl as string) ?? null;
+      } catch {
+        return null;
+      }
     },
   });
 
@@ -72,7 +77,7 @@ function WatchPage() {
 
   if (!movie) throw notFound();
 
-  /* Native full-length source (Database URL OR Extracted Scraper URL) */
+  /* Native source hierarchy: DB File -> Scraped m3u8 -> Fallback to Iframe */
   const nativeSrc =
     episode?.direct_stream_url ??
     episode?.video_url ??
@@ -131,7 +136,6 @@ function WatchPage() {
                 className="h-full w-full border-0"
                 allowFullScreen
                 allow="autoplay; encrypted-media; picture-in-picture"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
               />
             </div>
           )}
