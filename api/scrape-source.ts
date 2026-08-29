@@ -1,15 +1,15 @@
-import * as cheerio from "cheerio";
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("query") || searchParams.get("title");
 
   if (!query) {
-    return new Response(JSON.stringify({ error: "Missing search query" }), { status: 400 });
+    return new Response(JSON.stringify({ error: "Missing search query" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   try {
-    // 1. Perform Search
     const searchUrl = `https://www.thenetnaija.net/search?t=${encodeURIComponent(query)}`;
     const searchRes = await fetch(searchUrl, {
       headers: {
@@ -19,22 +19,28 @@ export async function GET(request: Request) {
     });
 
     if (!searchRes.ok) {
-      return new Response(JSON.stringify({ downloadUrl: null }), { status: 200 });
+      return new Response(JSON.stringify({ downloadUrl: null }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const searchHtml = await searchRes.text();
-    const $search = cheerio.load(searchHtml);
 
-    // 2. Extract First Relevant Article Link
-    const firstResultUrl =
-      $search(".post-title a").first().attr("href") ||
-      $search("article a").first().attr("href");
+    // 1. Match first article URL using RegEx
+    const linkMatch = searchHtml.match(/class="post-title"[^>]*>\s*<a href="([^"]+)"/i) ||
+                      searchHtml.match(/<article[^>]*>[\s\S]*?<a href="([^"]+)"/i);
+
+    const firstResultUrl = linkMatch?.[1];
 
     if (!firstResultUrl) {
-      return new Response(JSON.stringify({ downloadUrl: null }), { status: 200 });
+      return new Response(JSON.stringify({ downloadUrl: null }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    // 3. Resolve Media Landing Page
+    // 2. Resolve target media page
     const pageRes = await fetch(firstResultUrl, {
       headers: {
         "User-Agent":
@@ -43,23 +49,27 @@ export async function GET(request: Request) {
     });
 
     const pageHtml = await pageRes.text();
-    const $page = cheerio.load(pageHtml);
 
-    // 4. Find Direct Video Links (.mp4, .m3u8, or file CDN links)
-    let downloadUrl =
-      $page("a[href*='.mp4']").attr("href") ||
-      $page("a[href*='.m3u8']").attr("href") ||
-      $page("a.download-block").attr("href") ||
-      $page("a.read-more").attr("href");
+    // 3. Extract direct video URL (.mp4 or .m3u8)
+    const mediaMatch = pageHtml.match(/href="([^"]+\.(?:mp4|m3u8)[^"]*)"/i) ||
+                       pageHtml.match(/href="([^"]+download[^"]+)"/i);
+
+    const downloadUrl = mediaMatch?.[1] || null;
 
     return new Response(
-      JSON.stringify({ downloadUrl: downloadUrl || null }),
+      JSON.stringify({ downloadUrl }),
       {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }
     );
   } catch {
-    return new Response(JSON.stringify({ downloadUrl: null }), { status: 500 });
+    return new Response(
+      JSON.stringify({ downloadUrl: null }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 }
