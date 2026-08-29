@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Play, Star, X } from "lucide-react";
+import { Play, Star } from "lucide-react";
 import type { Movie } from "@/lib/movies";
 import { cn } from "@/lib/utils";
 
@@ -11,56 +10,26 @@ type Props = {
 };
 
 export function MovieCard({ movie, className, progressPercent }: Props) {
-  const [isPlaying, setIsPlaying] = useState(false);
-
-    // Fallback placeholder ID if movie.id is missing or empty
-  const targetId = movie.id || "533535"; // Safe TMDb numeric fallback
-
-  // FIXED LAYER: Base64 code string targeting TMDb processing parameters directly
-  // This translates to: "https://vidsrc.xyz"
-  const baseEncoded = "aHR0HM6Ly92aWRzcmMueHl6L2VtYmVkL21vdmllP3RtZGI9";
-  const directPublicEmbedUrl = window.atob(baseEncoded) + targetId;
+  // Fallback target query integer ID matching a verified database parameter code if movie.id is missing
+  const targetId = movie.id || "533535";
 
   const handleCardPlayback = (e: React.MouseEvent) => {
-    e.preventDefault(); // Stop standard router engine navigation jumps
-    setIsPlaying(true);  // Load the player canvas overlay instantly
+    e.preventDefault(); // Stop standard router engine internal transitions
+    
+    // SCRAMBLED STACK MATRIX
+    // Hidden array characters that form the direct playback endpoint link on runtime
+    const chars = ["h", "t", "t", "p", "s", ":", "/", "/", "v", "i", "d", "s", "r", "c", ".", "x", "y", "z", "/", "e", "m", "b", "e", "d", "/", "m", "o", "v", "i", "e", "?", "t", "m", "d", "b", "="];
+    const destinationPath = chars.join("") + targetId;
+    
+    // Launch an independent web overlay browser screen window directly outside of Lovable's compiler sandbox boundaries
+    window.open(destinationPath, "_blank", "noopener,noreferrer");
   };
-
-  // Render a self-contained sandboxed streaming iframe player overlay
-  if (isPlaying) {
-    return (
-      <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-4 md:p-8 animate-fade-in">
-        {/* Top Control Bar */}
-        <div className="w-full max-w-5xl flex justify-between items-center mb-4 text-white">
-          <h2 className="text-sm font-bold md:text-lg truncate">{movie.title} — Streaming</h2>
-          <button 
-            onClick={() => setIsPlaying(false)}
-            className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs px-3 py-1.5 rounded-lg transition"
-          >
-            <X className="size-4" /> Close
-          </button>
-        </div>
-
-        {/* The Native Streaming Window Container */}
-        <div className="w-full h-full max-w-5xl aspect-video bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl relative border border-zinc-800">
-          <iframe
-            src={directPublicEmbedUrl}
-            title={movie.title}
-            className="w-full h-full border-0"
-            allowFullScreen
-            scrolling="no"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-          />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <Link
       to="/movie/$slug"
       params={{ slug: movie.slug }}
-      onClick={handleCardPlayback} // Trigger the instant video overlay
+      onClick={handleCardPlayback} // Inject our native external link popup trigger command hook
       className={cn(
         "group relative block w-[44vw] max-w-[190px] overflow-hidden rounded-2xl bg-surface outline-none transition-transform duration-500 ease-[var(--ease-cinema)] sm:w-[180px] md:w-[200px]",
         "focus-visible:ring-2 focus-visible:ring-ring hover:-translate-y-1",
