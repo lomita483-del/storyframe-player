@@ -13,10 +13,8 @@ type Props = {
 export function MovieCard({ movie, className, progressPercent }: Props) {
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // Fallback to internal ID if tmdb_id isn't defined
   const tmdbId = movie.tmdb_id ? String(movie.tmdb_id) : (movie.id || "");
 
-  // Build the precise 2Embed stream iframe URL from the API spec
   const isTv = movie.media_type === "tv";
   const streamUrl = isTv
     ? `https://www.2embed.cc/embedtv/${tmdbId}?s=1&e=1`
@@ -90,22 +88,29 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
         </div>
       </Link>
 
-      {/* In-App Stream Player Modal */}
+      {/* Full-Screen Stream Modal */}
       {isPlaying && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-4xl overflow-hidden rounded-2xl bg-black shadow-2xl">
-            <button
-              onClick={() => setIsPlaying(false)}
-              className="absolute right-3 top-3 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black"
-            >
-              <X className="size-6" />
-            </button>
-            <div className="relative aspect-video w-full">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/95 p-4 backdrop-blur-md">
+          <div className="relative w-full max-w-5xl overflow-hidden rounded-2xl bg-black border border-white/10 shadow-2xl">
+            <div className="flex items-center justify-between bg-zinc-900 px-4 py-2 border-b border-white/10">
+              <span className="text-xs font-medium text-muted-foreground truncate max-w-[80%]">
+                Now Playing: {movie.title}
+              </span>
+              <button
+                onClick={() => setIsPlaying(false)}
+                className="rounded-full bg-white/10 p-1.5 text-white transition hover:bg-white/20"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="relative aspect-video w-full bg-black">
               <iframe
                 src={streamUrl}
                 title={movie.title}
                 className="h-full w-full border-0"
                 allowFullScreen
+                sandbox="allow-scripts allow-same-origin allow-forms"
                 allow="autoplay; encrypted-media; picture-in-picture"
               />
             </div>
