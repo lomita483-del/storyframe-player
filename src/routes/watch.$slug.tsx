@@ -98,9 +98,10 @@ function WatchPage() {
     isShow,
   ]);
 
+  const activeEpisodeNumber = episode?.episode_number ?? episodeParam ?? 1;
+
   /*
    * 1. Dynamic Client-Side Stream Extraction (MovieBox Style)
-   * Runs the background resolver to fetch direct .m3u8/.mp4 streams.
    */
   const { data: autoStream } = useQuery({
     queryKey: [
@@ -108,7 +109,7 @@ function WatchPage() {
       movie?.tmdb_id,
       movie?.title,
       activeSeason,
-      episodeParam,
+      activeEpisodeNumber,
       isShow,
     ],
     enabled: Boolean(
@@ -124,7 +125,7 @@ function WatchPage() {
         movie?.title,
         isShow ? "tv" : "movie",
         activeSeason,
-        episodeParam ?? 1
+        activeEpisodeNumber
       ),
     staleTime: 1000 * 60 * 30, // Cache active stream for 30 minutes
   });
@@ -143,7 +144,6 @@ function WatchPage() {
 
   /*
    * 2. Stream Priority Evaluation
-   * Database Direct Stream -> Extracted Direct Stream (autoStream.url)
    */
   const activeDirectStream =
     episode?.direct_stream_url ??
@@ -164,7 +164,7 @@ function WatchPage() {
     undefined;
 
   /*
-   * 3. Fallback Iframe Embed Source (Used only if direct extraction fails)
+   * 3. Fallback Iframe Embed Source (Fixed ?s= Query String)
    */
   const iframeSource =
     embedSrc(
@@ -178,7 +178,7 @@ function WatchPage() {
         movie.video_url,
     ) ??
     (isShow
-      ? `https://www.2embed.cc/embedtv/${movie.tmdb_id}&s=${activeSeason}&e=${episodeParam ?? 1}`
+      ? `https://www.2embed.cc/embedtv/${movie.tmdb_id}?s=${activeSeason}&e=${activeEpisodeNumber}`
       : `https://www.2embed.cc/embed/${movie.tmdb_id}`);
 
   const title = episode
@@ -206,7 +206,6 @@ function WatchPage() {
         {/* PLAYER SECTION */}
         <div className="mt-3">
           {activeDirectStream ? (
-            /* Direct Stream -> Custom VideoPlayer (Speed, Quality, 0 Ads, Progress) */
             <VideoPlayer
               src={activeDirectStream}
               type={directVideoType}
@@ -226,7 +225,6 @@ function WatchPage() {
               }}
             />
           ) : iframeSource ? (
-            /* Scraper Unsuccessful -> Sandboxed StreamingPlayer */
             <StreamingPlayer
               src={iframeSource}
               title={title}
@@ -235,7 +233,6 @@ function WatchPage() {
               }}
             />
           ) : (
-            /* No Available Sources Empty State */
             <div className="grid aspect-video w-full place-items-center overflow-hidden rounded-2xl bg-black md:rounded-3xl">
               <div className="max-w-md px-6 text-center">
                 <p className="text-base font-semibold text-white">
