@@ -9,7 +9,7 @@ export async function fetchAutoStreamUrl(
   title?: string,
   type: "movie" | "tv" = "movie",
   season: number = 1,
-  episode: number = 1
+  episode: number = 1,
 ): Promise<DirectStreamResult | null> {
   if (!tmdbId && !title) return null;
 
