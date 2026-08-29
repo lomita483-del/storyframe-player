@@ -24,7 +24,7 @@ import {
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { StreamingPlayer } from "@/components/StreamingPlayer";
 import { cn } from "@/lib/utils";
-import { extractStreamUrl } from "@/lib/scrapers/netnaija";
+import { fetchAutoStreamUrl } from "@/lib/scrapers/streamResolver";
 
 type WatchSearch = {
   s?: number;
@@ -99,12 +99,12 @@ function WatchPage() {
   ]);
 
   /*
-   * 1. Dynamic Client-Side Stream Extraction
-   * Calls extractStreamUrl directly without hitting backend server endpoints.
+   * 1. Dynamic Client-Side Stream Extraction (MovieBox Style)
+   * Runs the background resolver to fetch direct .m3u8/.mp4 streams.
    */
-  const { data: extractedStream } = useQuery({
+  const { data: autoStream } = useQuery({
     queryKey: [
-      "extracted-stream",
+      "auto-stream-resolver",
       movie?.tmdb_id,
       movie?.title,
       activeSeason,
@@ -119,13 +119,14 @@ function WatchPage() {
         !movie?.video_url
     ),
     queryFn: () =>
-      extractStreamUrl(
+      fetchAutoStreamUrl(
         movie?.tmdb_id,
         movie?.title,
         isShow ? "tv" : "movie",
         activeSeason,
         episodeParam ?? 1
       ),
+    staleTime: 1000 * 60 * 30, // Cache active stream for 30 minutes
   });
 
   if (isLoading) {
@@ -142,18 +143,19 @@ function WatchPage() {
 
   /*
    * 2. Stream Priority Evaluation
-   * Evaluates Database Direct Stream -> Extracted Stream
+   * Database Direct Stream -> Extracted Direct Stream (autoStream.url)
    */
   const activeDirectStream =
     episode?.direct_stream_url ??
     episode?.video_url ??
     movie?.direct_stream_url ??
     movie?.video_url ??
-    extractedStream;
+    autoStream?.url;
 
   const directVideoType =
     episode?.video_type ??
     movie?.video_type ??
+    autoStream?.type ??
     "hls";
 
   const subtitleUrl =
@@ -162,7 +164,7 @@ function WatchPage() {
     undefined;
 
   /*
-   * 3. Fallback Iframe Embed Source
+   * 3. Fallback Iframe Embed Source (Used only if direct extraction fails)
    */
   const iframeSource =
     embedSrc(
