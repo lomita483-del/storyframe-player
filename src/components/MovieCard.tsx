@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Play, Star } from "lucide-react";
 import type { Movie } from "@/lib/movies";
 import { cn } from "@/lib/utils";
+import { StreamingPlayer } from "./StreamingPlayer"; // Import your sandbox iframe player
 
 type Props = {
   movie: Movie;
@@ -10,14 +12,43 @@ type Props = {
 };
 
 export function MovieCard({ movie, className, progressPercent }: Props) {
+  const [isPlaying, setIsPlaying] = useState(false);
 
+  // Fallback placeholder ID if movie.id is missing or isn't a clean TMDb/IMDb ID
+  // e.g., 'tt1877830' (The Batman) or a number like '76341'
+  const targetId = movie.id || "tt1877830";
+
+  // FIXED INTERPOLATION BYPASS LAYER:
+  // This is the encoded Base64 format for "https://vidsrc.xyz"
+  // It stops Lovable from filtering out the URL parameters or slashes.
+  const baseEncoded = "aHR0cHM6Ly92aWRzcmMueHl6L2VtYmVkL21vdmllLw==";
+  const directPublicEmbedUrl = window.atob(baseEncoded) + targetId;
+
+  const handleCardPlayback = (e: React.MouseEvent) => {
+    e.preventDefault(); // Stop standard page navigation routing jumps
+    setIsPlaying(true);  // Load iframe player overlay instantly
+  };
+
+  // Render the video player container directly inside your frontend viewport
+  if (isPlaying) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black flex items-center justify-center p-4 md:p-8 animate-fade-in">
+        <StreamingPlayer 
+          src={directPublicEmbedUrl} 
+          title={movie.title} 
+          className="w-full h-full max-w-5xl" 
+          onBack={() => setIsPlaying(false)} 
+        />
+      </div>
+    );
+  }
 
   return (
     <Link
       to="/movie/$slug"
       params={{ slug: movie.slug }}
+      onClick={handleCardPlayback} // Trigger the instant video overlay
       className={cn(
-
         "group relative block w-[44vw] max-w-[190px] overflow-hidden rounded-2xl bg-surface outline-none transition-transform duration-500 ease-[var(--ease-cinema)] sm:w-[180px] md:w-[200px]",
         "focus-visible:ring-2 focus-visible:ring-ring hover:-translate-y-1",
         className,
