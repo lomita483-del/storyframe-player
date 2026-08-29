@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 export type DirectStreamResult = {
   url: string;
   type: "hls" | "mp4";
@@ -14,27 +16,27 @@ export async function fetchAutoStreamUrl(
   if (!tmdbId && !title) return null;
 
   try {
-    const params = new URLSearchParams();
-    if (tmdbId) params.set("tmdbId", tmdbId.toString());
-    if (title) params.set("query", title);
-    params.set("type", type);
-    params.set("season", season.toString());
-    params.set("episode", episode.toString());
+    const { data, error } = await supabase.functions.invoke("scrape-source", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      queryParams: {
+        tmdbId: tmdbId?.toString() || "",
+        query: title || "",
+        type,
+        season: season.toString(),
+        episode: episode.toString(),
+      },
+    });
 
-    const res = await fetch(`/api/scrape-source?${params.toString()}`);
-    if (!res.ok) return null;
+    if (error || !data?.url) return null;
 
-    const data = await res.json();
-    if (data?.url) {
-      return {
-        url: data.url,
-        type: data.type === "hls" || data.url.includes(".m3u8") ? "hls" : "mp4",
-        provider: data.provider || "Direct Stream",
-      };
-    }
+    return {
+      url: data.url,
+      type: data.type === "hls" || data.url.includes(".m3u8") ? "hls" : "mp4",
+      provider: data.provider || "Direct Stream",
+    };
   } catch (err) {
-    console.error("[streamResolver] Scraper resolution failed:", err);
+    console.error("[streamResolver] Supabase edge function call failed:", err);
+    return null;
   }
-
-  return null;
 }
