@@ -17,10 +17,12 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
     e.preventDefault();
     if (!tmdbId) return;
 
-    // Use vidsrc.to for stable playback across movies and TV shows
+    // Use vidsrc.me query parameter format to bypass iframe sandbox restrictions
     const type = movie.media_type === "tv" ? "tv" : "movie";
-    const destinationPath = `https://vidsrc.to/embed/${type}/${tmdbId}`;
-    
+    const destinationPath = type === "tv"
+      ? `https://vidsrc.me/embed/tv?tmdb=${tmdbId}`
+      : `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
+
     window.open(destinationPath, "_blank", "noopener,noreferrer");
   };
 
