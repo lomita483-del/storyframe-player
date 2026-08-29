@@ -17,21 +17,13 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
     e.preventDefault();
     if (!tmdbId) return;
 
-    // 2Embed handles sandboxed webviews cleanly without frame errors
+    // Direct embed endpoint to bypass landing pages
     const type = movie.media_type === "tv" ? "tv" : "movie";
     const destinationPath = type === "tv"
       ? `https://www.2embed.cc/embedtv/${tmdbId}`
       : `https://www.2embed.cc/embed/${tmdbId}`;
 
-    // Force top-level window location to escape iframe sandbox wrappers
-    if (window.top && window.top !== window.self) {
-      window.top.location.href = destinationPath;
-    } else {
-      const newWin = window.open(destinationPath, "_blank");
-      if (!newWin || newWin.closed || typeof newWin.closed === "undefined") {
-        window.location.href = destinationPath;
-      }
-    }
+    window.open(destinationPath, "_blank", "noopener,noreferrer");
   };
 
   return (
