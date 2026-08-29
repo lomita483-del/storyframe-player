@@ -98,10 +98,8 @@ function WatchPage() {
   ]);
 
   /*
-   * ============================================
-   * DYNAMIC STREAM SCRAPER (MovieBox Experience)
-   * ============================================
-   * Calls /api/extract when no direct URL exists in DB.
+   * 1. Dynamic Stream Extraction (/api/extract)
+   * Runs when no direct URL is configured in the database.
    */
   const { data: extractedStream } = useQuery({
     queryKey: ["extracted-stream", movie?.tmdb_id, activeSeason, episodeParam, isShow],
@@ -139,15 +137,8 @@ function WatchPage() {
   }
 
   /*
-   * ============================================
-   * SOURCE PRIORITY
-   * ============================================
-   * 1. DB Episode Direct Stream
-   * 2. DB Episode Video
-   * 3. DB Movie Direct Stream
-   * 4. DB Movie Video
-   * 5. Dynamically Scraped Stream (/api/extract)
-   * 6. Authorized Iframe Fallback
+   * 2. Stream Priority Evaluation
+   * Evaluates Database Direct Stream -> Extracted Stream
    */
   const activeDirectStream =
     episode?.direct_stream_url ??
@@ -167,7 +158,7 @@ function WatchPage() {
     undefined;
 
   /*
-   * Authorized iframe fallback source
+   * 3. Fallback Iframe Embed Source
    */
   const iframeSource =
     embedSrc(
@@ -208,12 +199,8 @@ function WatchPage() {
 
         {/* PLAYER SECTION */}
         <div className="mt-3">
-
           {activeDirectStream ? (
-            /*
-             * Direct HLS/MP4 or Extracted Stream
-             * Loads custom VideoPlayer (Speed controls, zero ads, progress tracking)
-             */
+            /* Direct Stream -> Custom VideoPlayer (Speed, Quality, 0 Ads, Progress) */
             <VideoPlayer
               src={activeDirectStream}
               type={directVideoType}
@@ -224,24 +211,16 @@ function WatchPage() {
                 undefined
               }
               subtitleUrl={subtitleUrl}
-              onProgress={(
-                seconds,
-                duration,
-              ) => {
+              onProgress={(seconds, duration) => {
                 void saveProgress({
                   movieId: movie.id,
-                  progressSeconds:
-                    Math.floor(seconds),
-                  durationSeconds:
-                    Math.floor(duration),
+                  progressSeconds: Math.floor(seconds),
+                  durationSeconds: Math.floor(duration),
                 });
               }}
             />
           ) : iframeSource ? (
-            /*
-             * Fallback Iframe Player
-             * Restricted sandbox rules (no popups or redirects)
-             */
+            /* Scraper Unsuccessful -> Sandboxed StreamingPlayer */
             <StreamingPlayer
               src={iframeSource}
               title={title}
@@ -250,9 +229,7 @@ function WatchPage() {
               }}
             />
           ) : (
-            /*
-             * No Playable Source Empty State
-             */
+            /* No Available Sources Empty State */
             <div className="grid aspect-video w-full place-items-center overflow-hidden rounded-2xl bg-black md:rounded-3xl">
               <div className="max-w-md px-6 text-center">
                 <p className="text-base font-semibold text-white">
@@ -282,7 +259,6 @@ function WatchPage() {
               </div>
             </div>
           )}
-
         </div>
 
         {/* TITLE */}
@@ -290,97 +266,84 @@ function WatchPage() {
           {title}
         </h1>
 
-        {/* TV EPISODES SECTION */}
-        {isShow &&
-          seasons &&
-          seasons.length > 0 && (
-            <section className="mt-8">
+        {/* TV EPISODES LIST */}
+        {isShow && seasons && seasons.length > 0 && (
+          <section className="mt-8">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-base font-semibold text-white">
+                Episodes
+              </h2>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <h2 className="text-base font-semibold text-white">
-                  Episodes
-                </h2>
+              <SeasonPicker
+                seasons={seasons.map((item) => item.season_number)}
+                active={activeSeason}
+                onSelect={(value) => {
+                  void navigate({
+                    to: "/watch/$slug",
+                    params: { slug },
+                    search: {
+                      s: value,
+                      e: 1,
+                    },
+                  });
+                }}
+              />
+            </div>
 
-                <SeasonPicker
-                  seasons={seasons.map(
-                    (item) =>
-                      item.season_number,
-                  )}
-                  active={activeSeason}
-                  onSelect={(value) => {
-                    void navigate({
-                      to: "/watch/$slug",
-                      params: { slug },
-                      search: {
-                        s: value,
-                        e: 1,
-                      },
-                    });
-                  }}
-                />
-              </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {(episodes ?? []).map((item) => {
+                const active =
+                  item.episode_number === (episode?.episode_number ?? 1);
 
-              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {(episodes ?? []).map(
-                  (item) => {
-                    const active =
-                      item.episode_number ===
-                      (episode?.episode_number ??
-                        1);
+                return (
+                  <Link
+                    key={item.id}
+                    to="/watch/$slug"
+                    params={{ slug }}
+                    search={{
+                      s: activeSeason,
+                      e: item.episode_number,
+                    }}
+                    className={cn(
+                      "flex gap-3 rounded-2xl border p-2.5 transition-colors",
+                      active
+                        ? "border-primary/60 bg-primary/10"
+                        : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]",
+                    )}
+                  >
+                    {item.still_url ? (
+                      <img
+                        src={item.still_url}
+                        alt=""
+                        loading="lazy"
+                        className="h-16 w-28 shrink-0 rounded-xl object-cover"
+                      />
+                    ) : (
+                      <div className="h-16 w-28 shrink-0 rounded-xl bg-white/10" />
+                    )}
 
-                    return (
-                      <Link
-                        key={item.id}
-                        to="/watch/$slug"
-                        params={{ slug }}
-                        search={{
-                          s: activeSeason,
-                          e: item.episode_number,
-                        }}
-                        className={cn(
-                          "flex gap-3 rounded-2xl border p-2.5 transition-colors",
-                          active
-                            ? "border-primary/60 bg-primary/10"
-                            : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]",
-                        )}
-                      >
-                        {item.still_url ? (
-                          <img
-                            src={item.still_url}
-                            alt=""
-                            loading="lazy"
-                            className="h-16 w-28 shrink-0 rounded-xl object-cover"
-                          />
-                        ) : (
-                          <div className="h-16 w-28 shrink-0 rounded-xl bg-white/10" />
-                        )}
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-white">
+                        {item.episode_number}.{" "}
+                        {item.name ?? `Episode ${item.episode_number}`}
+                      </p>
 
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-white">
-                            {item.episode_number}.{" "}
-                            {item.name ??
-                              `Episode ${item.episode_number}`}
-                          </p>
+                      <p className="line-clamp-2 text-xs text-muted-foreground">
+                        {item.overview ?? "No description available."}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              })}
 
-                          <p className="line-clamp-2 text-xs text-muted-foreground">
-                            {item.overview ??
-                              "No description available."}
-                          </p>
-                        </div>
-                      </Link>
-                    );
-                  },
-                )}
-
-                {!episodes?.length && (
-                  <p className="text-sm text-muted-foreground">
-                    No episodes imported for this season yet.
-                  </p>
-                )}
-              </div>
-
-            </section>
-          )}
+              {!episodes?.length && (
+                <p className="text-sm text-muted-foreground">
+                  No episodes imported for this season yet.
+                </p>
+              )}
+            </div>
+          </section>
+        )}
       </div>
     </main>
   );
