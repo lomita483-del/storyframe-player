@@ -17,8 +17,10 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
     e.preventDefault();
     if (!tmdbId) return;
 
-    // Load full movie stream using the movie's TMDB ID
-    const destinationPath = `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}`;
+    // Dynamically handle TV shows vs Movies using active vidsrc.cc provider
+    const type = movie.media_type === "tv" ? "tv" : "movie";
+    const destinationPath = `https://vidsrc.cc/v2/embed/${type}/${tmdbId}`;
+    
     window.open(destinationPath, "_blank", "noopener,noreferrer");
   };
 
