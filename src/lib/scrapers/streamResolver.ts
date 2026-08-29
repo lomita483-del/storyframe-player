@@ -1,5 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
-
 export type DirectStreamResult = {
   url: string;
   type: "hls" | "mp4";
@@ -16,28 +14,45 @@ export async function fetchAutoStreamUrl(
   if (!tmdbId && !title) return null;
 
   try {
-    const { data, error } = await supabase.functions.invoke("scrape-source", {
-      body: {
+    // Lovable Cloud environment variables
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !anonKey) {
+      console.error("[streamResolver] Missing Lovable Cloud environment keys.");
+      return null;
+    }
+
+    const endpoint = `${supabaseUrl}/functions/v1/scrape-source`;
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify({
         tmdbId: tmdbId?.toString() || "",
         query: title || "",
         type,
         season: season.toString(),
         episode: episode.toString(),
-      },
+      }),
     });
 
-    if (error || !data?.url) {
-      console.warn("[streamResolver] No stream returned from Edge Function:", error);
-      return null;
-    }
+    if (!res.ok) return null;
 
-    return {
-      url: data.url,
-      type: data.type === "hls" || data.url.includes(".m3u8") ? "hls" : "mp4",
-      provider: data.provider || "Direct Stream",
-    };
+    const data = await res.json();
+    if (data?.url) {
+      return {
+        url: data.url,
+        type: data.type === "hls" || data.url.includes(".m3u8") ? "hls" : "mp4",
+        provider: data.provider || "Direct Stream",
+      };
+    }
   } catch (err) {
-    console.error("[streamResolver] Supabase Edge Function execution failed:", err);
-    return null;
+    console.error("[streamResolver] Stream resolution error:", err);
   }
+
+  return null;
 }
