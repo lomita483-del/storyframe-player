@@ -12,15 +12,15 @@ export async function fetchAutoStreamUrl(
 ): Promise<DirectStreamResult | null> {
   if (!tmdbId) return null;
 
-  // List of direct scrapers/APIs to test concurrently
   const fetchers = [
+    // 1. AutoEmbed API via CORS Proxy
     async () => {
-      const endpoint =
+      const target =
         type === "tv"
           ? `https://autoembed.cc/api/get/tv?id=${tmdbId}&s=${season}&e=${episode}`
           : `https://autoembed.cc/api/get/movie?id=${tmdbId}`;
 
-      const res = await fetch(endpoint);
+      const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(target)}`);
       if (!res.ok) return null;
       const data = await res.json();
       const streamUrl = data?.file || data?.url || data?.sources?.[0]?.file;
@@ -31,13 +31,15 @@ export async function fetchAutoStreamUrl(
         type: streamUrl.includes(".m3u8") ? ("hls" as const) : ("mp4" as const),
       };
     },
+
+    // 2. VidSrc API via CORS Proxy
     async () => {
-      const endpoint =
+      const target =
         type === "tv"
           ? `https://vidsrc.pro/api/stream/tv/${tmdbId}/${season}/${episode}`
           : `https://vidsrc.pro/api/stream/movie/${tmdbId}`;
 
-      const res = await fetch(endpoint);
+      const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(target)}`);
       if (!res.ok) return null;
       const data = await res.json();
       const streamUrl = data?.stream || data?.source;
