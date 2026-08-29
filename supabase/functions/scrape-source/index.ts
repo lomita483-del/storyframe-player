@@ -11,67 +11,95 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  const url = new URL(req.url);
-  const query = url.searchParams.get("query") || "";
-  const tmdbId = url.searchParams.get("tmdbId");
-  const type = url.searchParams.get("type") || "movie";
-  const season = url.searchParams.get("season") || "1";
-  const episode = url.searchParams.get("episode") || "1";
+  try {
+    const url = new URL(req.url);
+    const query = url.searchParams.get("query") || "";
+    const tmdbId = url.searchParams.get("tmdbId");
+    const type = url.searchParams.get("type") || "movie";
+    const season = url.searchParams.get("season") || "1";
+    const episode = url.searchParams.get("episode") || "1";
 
-  // Provider Scrape Logic
-  const result = await scrapeProviders(query, tmdbId, type, season, episode);
+    const result = await scrapeProviders(query, tmdbId, type, season, episode);
 
-  if (result) {
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+    if (result) {
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    return new Response(
+      JSON.stringify({ error: "No direct stream found across providers" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+    );
   }
-
-  return new Response(
-    JSON.stringify({ error: "No direct playable media stream found" }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 404 }
-  );
 });
 
-async function scrapeProviders(query: string, tmdbId: string | null, type: string, season: string, episode: string) {
-  // 1. NetNaija Parse
+async function scrapeProviders(
+  query: string,
+  tmdbId: string | null,
+  type: string,
+  season: string,
+  episode: string
+) {
+  // Provider 1: NetNaija Search & Parse
   if (query) {
     try {
-      const term = `${query} ${season ? `S${season}E${episode}` : ""}`;
+      const term = `${query} ${type === "tv" ? `S${season}E${episode}` : ""}`;
       const searchRes = await fetch(`https://thenetnaija.net/search?t=${encodeURIComponent(term)}`);
+      
       if (searchRes.ok) {
         const $ = cheerio.load(await searchRes.text());
         const postLink = $("article.post-item a").first().attr("href");
+        
         if (postLink) {
           const postRes = await fetch(postLink);
           const $post = cheerio.load(await postRes.text());
           const downloadUrl = $post('a.download-button, a[href*=".mp4"]').first().attr("href");
-          if (downloadUrl) return { url: downloadUrl, type: "mp4", provider: "NetNaija" };
+          
+          if (downloadUrl) {
+            return { url: downloadUrl, type: "mp4", provider: "NetNaija Gateway" };
+          }
         }
       }
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error("[NetNaija Scraper Error]:", err);
     }
   }
 
-  // 2. Fast Embed Bridge Fallback
+  // Provider 2: AutoEmbed Engine
   if (tmdbId) {
     try {
       const targetUrl = type === "tv"
         ? `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}`
         : `https://player.autoembed.cc/embed/movie/${tmdbId}`;
 
-      const res = await fetch(targetUrl);
+      const res = await fetch(targetUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Referer": "https://autoembed.cc/",
+        },
+      });
+
       if (res.ok) {
         const html = await res.text();
         const match = html.match(/(https?:\/\/[^\s"'<>]+\.(?:m3u8|mp4)[^\s"'<>]*)/i);
+        
         if (match) {
-          return { url: match[1], type: match[1].includes(".m3u8") ? "hls" : "mp4", provider: "AutoEmbed" };
+          return {
+            url: match[1],
+            type: match[1].includes(".m3u8") ? "hls" : "mp4",
+            provider: "AutoEmbed Engine",
+          };
         }
       }
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error("[AutoEmbed Scraper Error]:", err);
     }
   }
 
