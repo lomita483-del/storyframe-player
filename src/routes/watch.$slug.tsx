@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   ChevronDown,
   Loader2,
+  Tv,
 } from "lucide-react";
 
 import { movieBySlugQuery, saveProgress } from "@/lib/movies";
@@ -101,7 +102,7 @@ function WatchPage() {
   const targetId = movie?.tmdb_id ?? movie?.id;
 
   /*
-   * Direct Stream Extraction (MovieBox Style Scraper)
+   * Direct Stream Extraction (Waterfall Scraper Call)
    */
   const { data: autoStream, isLoading: isExtractingStream } = useQuery({
     queryKey: [
@@ -158,6 +159,8 @@ function WatchPage() {
     autoStream?.type ??
     "hls";
 
+  const activeProvider = autoStream?.provider ?? "Direct Server Stream";
+
   const subtitleUrl =
     episode?.subtitle_url ??
     movie?.subtitle_url ??
@@ -175,20 +178,29 @@ function WatchPage() {
     <main className="min-h-screen bg-black pb-24">
       <div className="mx-auto max-w-[1400px] px-3 pt-3 md:px-6 md:pt-5">
 
-        {/* BACK BUTTON */}
-        <Link
-          to="/movie/$slug"
-          params={{ slug }}
-          className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/90 transition-colors hover:bg-white/20"
-        >
-          <ArrowLeft className="size-4" />
-          Back
-        </Link>
+        {/* BACK BUTTON & PROVIDER BADGE */}
+        <div className="flex items-center justify-between">
+          <Link
+            to="/movie/$slug"
+            params={{ slug }}
+            className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/90 transition-colors hover:bg-white/20"
+          >
+            <ArrowLeft className="size-4" />
+            Back
+          </Link>
+
+          {activeDirectStream && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+              <Tv className="size-3 text-primary" />
+              Source: {activeProvider}
+            </span>
+          )}
+        </div>
 
         {/* PLAYER CONTAINER */}
         <div className="mt-3">
           {activeDirectStream ? (
-            /* 1. Native Direct Video Player (Custom Controls, Subtitles, 0 Ads) */
+            /* 1. Native Direct Video Player */
             <VideoPlayer
               src={activeDirectStream}
               type={directVideoType}
@@ -208,18 +220,23 @@ function WatchPage() {
               }}
             />
           ) : isExtractingStream ? (
-            /* 2. Extraction In Progress Indicator */
-            <div className="grid aspect-video w-full place-items-center overflow-hidden rounded-2xl bg-black/80 border border-white/10 md:rounded-3xl">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="size-8 animate-spin text-primary" />
-                <p className="text-sm font-medium text-white/70">
-                  Resolving direct stream URL...
-                </p>
+            /* 2. Extraction In Progress Overlay */
+            <div className="grid aspect-video w-full place-items-center overflow-hidden rounded-2xl border border-white/10 bg-black/90 md:rounded-3xl">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <Loader2 className="size-10 animate-spin text-primary" />
+                <div>
+                  <p className="text-base font-medium text-white">
+                    Analysing stream sources...
+                  </p>
+                  <p className="mt-1 text-xs text-white/50">
+                    Probing NetNaija, Sabishare, and media gateways
+                  </p>
+                </div>
               </div>
             </div>
           ) : (
-            /* 3. Empty State (No Iframes) */
-            <div className="grid aspect-video w-full place-items-center overflow-hidden rounded-2xl bg-black/80 border border-white/10 md:rounded-3xl">
+            /* 3. Empty State */
+            <div className="grid aspect-video w-full place-items-center overflow-hidden rounded-2xl border border-white/10 bg-black/80 md:rounded-3xl">
               <div className="max-w-md px-6 text-center">
                 <p className="text-base font-semibold text-white">
                   No Direct Stream Found
