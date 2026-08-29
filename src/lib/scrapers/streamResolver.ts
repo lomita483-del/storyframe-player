@@ -33,7 +33,7 @@ export async function fetchAutoStreamUrl(
       };
     }
   } catch (err) {
-    console.error("[streamResolver] Backend stream resolution failed:", err);
+    console.error("[streamResolver] Scraper resolution failed:", err);
   }
 
   return null;
