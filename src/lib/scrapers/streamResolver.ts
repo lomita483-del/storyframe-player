@@ -1,6 +1,6 @@
 export type DirectStreamResult = {
   url: string;
-  type: "hls" | "mp4";
+  type: "hls" | "mp4" | "torrent";
   provider?: string;
 };
 
@@ -14,18 +14,12 @@ export async function fetchAutoStreamUrl(
   if (!tmdbId && !title) return null;
 
   try {
-    // Lovable Cloud environment variables
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-    if (!supabaseUrl || !anonKey) {
-      console.error("[streamResolver] Missing Lovable Cloud environment keys.");
-      return null;
-    }
+    if (!supabaseUrl || !anonKey) return null;
 
-    const endpoint = `${supabaseUrl}/functions/v1/scrape-source`;
-
-    const res = await fetch(endpoint, {
+    const res = await fetch(`${supabaseUrl}/functions/v1/scrape-source`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -46,12 +40,12 @@ export async function fetchAutoStreamUrl(
     if (data?.url) {
       return {
         url: data.url,
-        type: data.type === "hls" || data.url.includes(".m3u8") ? "hls" : "mp4",
-        provider: data.provider || "Direct Stream",
+        type: data.type,
+        provider: data.provider || "Direct Scraper",
       };
     }
   } catch (err) {
-    console.error("[streamResolver] Stream resolution error:", err);
+    console.error("[streamResolver] Execution error:", err);
   }
 
   return null;
