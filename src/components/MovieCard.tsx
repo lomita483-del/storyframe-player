@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Play, Star, X } from "lucide-react";
+import { Play, Star, ExternalLink, X } from "lucide-react";
 import type { Movie } from "@/lib/movies";
 import { cn } from "@/lib/utils";
 
@@ -88,20 +88,31 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
         </div>
       </Link>
 
-      {/* Full-Screen Stream Modal */}
+      {/* Stream Modal */}
       {isPlaying && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/95 p-4 backdrop-blur-md">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-4 backdrop-blur-md">
           <div className="relative w-full max-w-5xl overflow-hidden rounded-2xl bg-black border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between bg-zinc-900 px-4 py-2 border-b border-white/10">
-              <span className="text-xs font-medium text-muted-foreground truncate max-w-[80%]">
+              <span className="text-xs font-medium text-muted-foreground truncate max-w-[70%]">
                 Now Playing: {movie.title}
               </span>
-              <button
-                onClick={() => setIsPlaying(false)}
-                className="rounded-full bg-white/10 p-1.5 text-white transition hover:bg-white/20"
-              >
-                <X className="size-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <a
+                  href={streamUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-xs text-white transition hover:bg-white/20"
+                >
+                  <ExternalLink className="size-3.5" />
+                  Open Direct
+                </a>
+                <button
+                  onClick={() => setIsPlaying(false)}
+                  className="rounded-full bg-white/10 p-1.5 text-white transition hover:bg-white/20"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
             </div>
 
             <div className="relative aspect-video w-full bg-black">
@@ -110,8 +121,7 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
                 title={movie.title}
                 className="h-full w-full border-0"
                 allowFullScreen
-                sandbox="allow-scripts allow-same-origin allow-forms"
-                allow="autoplay; encrypted-media; picture-in-picture"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
               />
             </div>
           </div>
