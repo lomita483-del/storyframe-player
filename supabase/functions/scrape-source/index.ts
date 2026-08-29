@@ -12,12 +12,27 @@ serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const query = url.searchParams.get("query") || "";
-    const tmdbId = url.searchParams.get("tmdbId");
-    const type = url.searchParams.get("type") || "movie";
-    const season = url.searchParams.get("season") || "1";
-    const episode = url.searchParams.get("episode") || "1";
+    let query = "";
+    let tmdbId = "";
+    let type = "movie";
+    let season = "1";
+    let episode = "1";
+
+    if (req.method === "POST") {
+      const body = await req.json().catch(() => ({}));
+      query = body.query || "";
+      tmdbId = body.tmdbId || "";
+      type = body.type || "movie";
+      season = body.season || "1";
+      episode = body.episode || "1";
+    } else {
+      const url = new URL(req.url);
+      query = url.searchParams.get("query") || "";
+      tmdbId = url.searchParams.get("tmdbId") || "";
+      type = url.searchParams.get("type") || "movie";
+      season = url.searchParams.get("season") || "1";
+      episode = url.searchParams.get("episode") || "1";
+    }
 
     const result = await scrapeProviders(query, tmdbId, type, season, episode);
 
