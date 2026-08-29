@@ -17,9 +17,9 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
     e.preventDefault();
     if (!tmdbId) return;
 
-    // Dynamically handle TV shows vs Movies using active vidsrc.cc provider
+    // Use vidsrc.to for stable playback across movies and TV shows
     const type = movie.media_type === "tv" ? "tv" : "movie";
-    const destinationPath = `https://vidsrc.cc/v2/embed/${type}/${tmdbId}`;
+    const destinationPath = `https://vidsrc.to/embed/${type}/${tmdbId}`;
     
     window.open(destinationPath, "_blank", "noopener,noreferrer");
   };
