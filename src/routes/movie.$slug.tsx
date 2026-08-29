@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Play, Film, Loader2, Star, ArrowLeft, Tv } from "lucide-react";
+import { Play, Film, Loader2, Star, ArrowLeft, Tv, ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { enrichTitleBySlug } from "@/lib/tmdb.functions";
@@ -9,7 +9,6 @@ import { movieBySlugQuery, publishedMoviesQuery, formatRuntime } from "@/lib/mov
 import { Button } from "@/components/ui/button";
 import { WatchlistButton } from "@/components/WatchlistButton";
 import { MovieRow } from "@/components/MovieRow";
-import { ExternalLink } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/movie/$slug")({
@@ -49,6 +48,13 @@ export const Route = createFileRoute("/movie/$slug")({
   ),
 });
 
+// Helper function to extract YouTube embed link safely
+function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1` : url;
+}
+
 function MovieDetails() {
   const { slug } = Route.useParams();
   const { data: movie, isLoading } = useQuery(movieBySlugQuery(slug));
@@ -85,8 +91,10 @@ function MovieDetails() {
   if (!movie) throw notFound();
 
   const related = (all ?? [])
-    .filter((m) => m.id !== movie.id && (m.genre === movie.genre || true))
+    .filter((m) => m.id !== movie.id)
     .slice(0, 12);
+
+  const trailerEmbedUrl = getYouTubeEmbedUrl(movie.trailer_url);
 
   return (
     <main className="pb-24">
@@ -144,11 +152,6 @@ function MovieDetails() {
                     <Star className="size-3.5 fill-current" /> {movie.rating}
                   </span>
                 )}
-                {!movie.is_published && (
-                  <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase">
-                    Draft
-                  </span>
-                )}
               </div>
 
               {movie.description && (
@@ -158,10 +161,11 @@ function MovieDetails() {
               )}
 
               <div className="mt-7 flex flex-wrap items-center gap-2.5">
+                {/* Watch Now routing directly to full stream */}
                 <Button asChild size="lg" className="rounded-full px-7">
                   <Link to="/watch/$slug" params={{ slug: movie.slug }}>
                     <Play className="size-4 fill-current" />{" "}
-                    {isShow ? "Watch episode 1" : "Watch Now"}
+                    {isShow ? "Watch Episode 1" : "Watch Now"}
                   </Link>
                 </Button>
                 <WatchlistButton movieId={movie.id} />
@@ -225,18 +229,21 @@ function MovieDetails() {
         <MovieRow title="More like this" movies={related} />
       </div>
 
+      {/* Trailer Dialog using iframe instead of html5 video */}
       <Dialog open={trailerOpen} onOpenChange={setTrailerOpen}>
-        <DialogContent className="max-w-3xl border-border bg-background p-0">
-          <DialogTitle className="px-5 pt-5 text-base">{movie.title} — trailer</DialogTitle>
-          {movie.trailer_url && (
-            <video
-              src={movie.trailer_url}
-              controls
-              autoPlay
-              playsInline
-              className="aspect-video w-full rounded-b-2xl bg-black"
-            />
-          )}
+        <DialogContent className="max-w-4xl border-border bg-background p-0 overflow-hidden">
+          <DialogTitle className="px-5 pt-4 text-base">{movie.title} — Official Trailer</DialogTitle>
+          <div className="relative aspect-video w-full bg-black">
+            {trailerEmbedUrl && (
+              <iframe
+                src={trailerEmbedUrl}
+                title={`${movie.title} Trailer`}
+                className="h-full w-full border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </main>
@@ -336,11 +343,6 @@ function EpisodesSection({
               </Link>
             </li>
           ))}
-          {!episodes?.length && (
-            <li className="rounded-2xl border border-border bg-surface/60 p-8 text-center text-sm text-muted-foreground">
-              No episodes listed for this season yet.
-            </li>
-          )}
         </ul>
       )}
     </section>
