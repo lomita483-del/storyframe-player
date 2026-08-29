@@ -17,7 +17,7 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
       to="/movie/$slug"
       params={{ slug: movie.slug }}
       className={cn(
-      className={cn(
+
         "group relative block w-[44vw] max-w-[190px] overflow-hidden rounded-2xl bg-surface outline-none transition-transform duration-500 ease-[var(--ease-cinema)] sm:w-[180px] md:w-[200px]",
         "focus-visible:ring-2 focus-visible:ring-ring hover:-translate-y-1",
         className,
