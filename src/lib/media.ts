@@ -103,15 +103,13 @@ export async function hydrateMediaRefs<T extends Record<string, unknown>>(rows: 
 export function embedSrc(provider?: string | null, url?: string | null) {
   if (!provider || !url) return null;
   const raw = url.trim();
+
+  // Prevent YouTube trailers from hijacking full movie/show playback
+  if (provider === "youtube" || raw.includes("youtube.com") || raw.includes("youtu.be")) {
+    return null;
+  }
+
   try {
-    if (provider === "youtube") {
-      const id = /^[\w-]{11}$/.test(raw)
-        ? raw
-        : new URL(raw).searchParams.get("v") ??
-          new URL(raw).pathname.split("/").filter(Boolean).pop() ??
-          null;
-      return id ? `https://www.youtube.com/embed/${id}?rel=0` : null;
-    }
     if (provider === "vimeo") {
       const id = /^\d+$/.test(raw) ? raw : new URL(raw).pathname.split("/").filter(Boolean)[0];
       return id ? `https://player.vimeo.com/video/${id}` : null;
