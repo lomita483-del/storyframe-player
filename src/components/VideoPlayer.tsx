@@ -10,6 +10,7 @@ import {
   Settings,
   Subtitles,
   RotateCcw,
+  RotateCw,
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -329,6 +330,17 @@ export function VideoPlayer({
           >
             <RotateCcw className="size-4.5" />
           </ControlButton>
+
+          <ControlButton
+            label="Forward 10 seconds"
+            onClick={() => {
+              const video = videoRef.current;
+              if (video) video.currentTime += 10;
+            }}
+          >
+            <RotateCw className="size-4.5" />
+          </ControlButton>
+
 
           <div className="ml-1 flex items-center gap-2">
             <ControlButton
