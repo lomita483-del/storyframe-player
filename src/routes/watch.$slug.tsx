@@ -1,59 +1,107 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import React, { useEffect, useState, useRef } from 'react';
-import { ArrowLeft, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
-import Hls from 'hls.js';
-import { fetchAutoStreamUrl, DirectStreamResult } from '@/lib/scrapers/streamResolver';
+import React, { useEffect, useRef, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
+  ArrowLeft,
+  Loader2,
+  AlertTriangle,
+  PlayCircle,
+} from "lucide-react";
+import Hls from "hls.js";
+import {
+  fetchAutoStreamUrl,
+  type DirectStreamResult,
+} from "@/lib/scrapers/streamResolver";
 
 interface WatchSearchParams {
-  type?: 'movie' | 'tv';
+  tmdbId?: number;
+  title?: string;
+  type?: "movie" | "tv";
   season?: number;
   episode?: number;
 }
 
-export const Route = createFileRoute('/watch/$slug')({
-  validateSearch: (search: Record<string, unknown>): WatchSearchParams => {
-    return {
-      type: (search.type as 'movie' | 'tv') || 'movie',
-      season: Number(search.season) || 1,
-      episode: Number(search.episode) || 1,
-    };
-  },
+export const Route = createFileRoute("/watch/$slug")({
+  validateSearch: (search: Record<string, unknown>): WatchSearchParams => ({
+    tmdbId:
+      typeof search.tmdbId === "number"
+        ? search.tmdbId
+        : typeof search.tmdbId === "string" && search.tmdbId
+          ? Number(search.tmdbId)
+          : undefined,
+
+    title:
+      typeof search.title === "string"
+        ? search.title
+        : undefined,
+
+    type:
+      search.type === "tv" || search.type === "movie"
+        ? search.type
+        : "movie",
+
+    season:
+      typeof search.season === "number"
+        ? search.season
+        : typeof search.season === "string" && search.season
+          ? Number(search.season)
+          : 1,
+
+    episode:
+      typeof search.episode === "number"
+        ? search.episode
+        : typeof search.episode === "string" && search.episode
+          ? Number(search.episode)
+          : 1,
+  }),
+
   component: WatchSlugPage,
 });
 
-export function WatchSlugPage() {
+function WatchSlugPage() {
   const { slug } = Route.useParams();
   const search = Route.useSearch();
+
   const navigate = useNavigate();
 
-  const type = search.type || 'movie';
-  const season = search.season || 1;
-  const episode = search.episode || 1;
+  const [stream, setStream] =
+    useState<DirectStreamResult | null>(null);
 
-  const [stream, setStream] = useState<DirectStreamResult | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState<string | null>(null);
+
+  const [videoReady, setVideoReady] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Extract human-readable title and TMDB ID from slug
-  const parseSlug = (slugStr: string) => {
-    const parts = slugStr.split('-');
-    const possibleId = parseInt(parts[parts.length - 1], 10);
-    if (!isNaN(possibleId)) {
-      const rawTitle = parts.slice(0, -1).join(' ');
-      return {
-        title: rawTitle.replace(/\b\w/g, (c) => c.toUpperCase()) || slugStr,
-        tmdbId: possibleId,
-      };
-    }
-    return {
-      title: slugStr.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-      tmdbId: undefined,
-    };
-  };
+  /*
+   * Use the supplied movie information when available.
+   *
+   * There are intentionally NO fake defaults such as Game of Thrones.
+   */
+  const tmdbId = search.tmdbId;
 
-  const { title, tmdbId } = parseSlug(slug);
+  const title =
+    search.title ||
+    slug
+      .replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
+  const type = search.type || "movie";
+
+  const season = Math.max(
+    1,
+    search.season || 1,
+  );
+
+  const episode = Math.max(
+    1,
+    search.episode || 1,
+  );
+
+  /*
+   * Resolve the stream.
+   */
   useEffect(() => {
     let cancelled = false;
 
@@ -61,17 +109,56 @@ export function WatchSlugPage() {
       setLoading(true);
       setError(null);
       setStream(null);
+      setVideoReady(false);
 
-      const result = await fetchAutoStreamUrl(tmdbId, title, type, season, episode);
+      if (!tmdbId && !title) {
+        if (!cancelled) {
+          setError(
+            "This movie does not contain enough information to locate a stream.",
+          );
+          setLoading(false);
+        }
 
-      if (cancelled) return;
-
-      if (result) {
-        setStream(result);
-      } else {
-        setError("Direct media files could not be extracted across scrapers.");
+        return;
       }
-      setLoading(false);
+
+      try {
+        const result = await fetchAutoStreamUrl(
+          tmdbId,
+          title,
+          type,
+          season,
+          episode,
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!result) {
+          setError(
+            "No playable stream was found for this title. Please try again later.",
+          );
+          setLoading(false);
+          return;
+        }
+
+        setStream(result);
+        setLoading(false);
+      } catch (error) {
+        console.error(
+          "[WatchPage] Stream resolution failed:",
+          error,
+        );
+
+        if (!cancelled) {
+          setError(
+            "Unable to load the video stream. Please try again.",
+          );
+
+          setLoading(false);
+        }
+      }
     }
 
     resolveMedia();
@@ -79,103 +166,316 @@ export function WatchSlugPage() {
     return () => {
       cancelled = true;
     };
-  }, [tmdbId, title, type, season, episode]);
+  }, [
+    tmdbId,
+    title,
+    type,
+    season,
+    episode,
+  ]);
 
-  // Video Element Handler (HLS, MP4 & Safe WebTorrent Magnet Playback)
+  /*
+   * Configure video playback.
+   *
+   * HLS is handled by hls.js where native HLS isn't available.
+   * MP4 is handled directly by the browser.
+   *
+   * Torrent playback is intentionally not initialized here.
+   * Browser-side WebTorrent can cause compatibility/build issues
+   * and should not be used for unauthorized content.
+   */
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !stream) return;
 
-    let hlsInstance: Hls | null = null;
-    let torrentClient: any = null;
+    if (!video || !stream) {
+      return;
+    }
 
+    let hls: Hls | null = null;
+
+    const handleLoadedMetadata = () => {
+      setVideoReady(true);
+    };
+
+    const handleCanPlay = () => {
+      setVideoReady(true);
+    };
+
+    const handleError = () => {
+      console.error(
+        "[WatchPage] Video element reported a playback error.",
+      );
+
+      setError(
+        "The video could not be played. The stream may have expired or may not be compatible with your browser.",
+      );
+    };
+
+    video.addEventListener(
+      "loadedmetadata",
+      handleLoadedMetadata,
+    );
+
+    video.addEventListener(
+      "canplay",
+      handleCanPlay,
+    );
+
+    video.addEventListener(
+      "error",
+      handleError,
+    );
+
+    /*
+     * HLS
+     */
     if (stream.type === "hls") {
       if (Hls.isSupported()) {
-        hlsInstance = new Hls({ enableWorker: true });
-        hlsInstance.loadSource(stream.url);
-        hlsInstance.attachMedia(video);
-      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.src = stream.url;
-      }
-    } else if (stream.type === "mp4") {
-      video.src = stream.url;
-    } else if (stream.type === "torrent") {
-      // Browser-safe WebTorrent instantiation without top-level import
-      if (typeof window !== 'undefined' && (window as any).WebTorrent) {
-        const WebTorrentClient = (window as any).WebTorrent;
-        torrentClient = new WebTorrentClient();
-        torrentClient.add(stream.url, (torrent: any) => {
-          const file = torrent.files.find((f: any) => f.name.endsWith(".mp4") || f.name.endsWith(".mkv"));
-          if (file) {
-            file.renderTo(video);
+        hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          backBufferLength: 90,
+        });
+
+        hls.on(Hls.Events.ERROR, (_event, data) => {
+          console.error(
+            "[WatchPage] HLS error:",
+            data,
+          );
+
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                console.warn(
+                  "[WatchPage] Fatal HLS network error. Attempting recovery.",
+                );
+
+                hls?.startLoad();
+                break;
+
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.warn(
+                  "[WatchPage] Fatal HLS media error. Attempting recovery.",
+                );
+
+                hls?.recoverMediaError();
+                break;
+
+              default:
+                setError(
+                  "The HLS stream could not be played.",
+                );
+
+                hls?.destroy();
+                hls = null;
+            }
           }
         });
+
+        hls.loadSource(stream.url);
+        hls.attachMedia(video);
+      } else if (
+        video.canPlayType(
+          "application/vnd.apple.mpegurl",
+        )
+      ) {
+        /*
+         * Safari / iOS native HLS.
+         */
+        video.src = stream.url;
+      } else {
+        setError(
+          "This browser does not support HLS video playback.",
+        );
       }
     }
 
+    /*
+     * MP4
+     */
+    else if (stream.type === "mp4") {
+      video.src = stream.url;
+      video.load();
+    }
+
+    /*
+     * Torrent
+     *
+     * Don't attempt to feed magnet URLs directly into HTMLVideoElement.
+     */
+    else if (stream.type === "torrent") {
+      setError(
+        "This stream source requires torrent playback, which is not supported by this player.",
+      );
+    }
+
     return () => {
-      if (hlsInstance) hlsInstance.destroy();
-      if (torrentClient) torrentClient.destroy();
+      video.removeEventListener(
+        "loadedmetadata",
+        handleLoadedMetadata,
+      );
+
+      video.removeEventListener(
+        "canplay",
+        handleCanPlay,
+      );
+
+      video.removeEventListener(
+        "error",
+        handleError,
+      );
+
+      if (hls) {
+        hls.destroy();
+        hls = null;
+      }
+
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
     };
   }, [stream]);
 
+  /*
+   * Back button.
+   */
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate({
+        to: `/movie/${slug}`,
+      });
+    } else {
+      navigate({
+        to: "/",
+      });
+    }
+  };
+
   return (
-    <div className="flex flex-col min-h-screen bg-black text-white p-4 max-w-7xl mx-auto">
-      {/* Top Header Controls */}
-      <div className="flex items-center justify-between mb-4">
-        <button
-          onClick={() => navigate({ to: '/' })}
-          className="flex items-center gap-2 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-md text-sm transition"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back
-        </button>
+    <div className="min-h-screen bg-black text-white">
+      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col p-4">
+        {/* Header */}
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="flex items-center gap-2 rounded-md bg-neutral-800 px-3 py-2 text-sm transition hover:bg-neutral-700"
+          >
+            <ArrowLeft className="h-4 w-4" />
 
-        {stream?.provider && (
-          <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs rounded-full">
-            <ShieldCheck className="w-3.5 h-3.5" /> Source: {stream.provider}
-          </span>
-        )}
-      </div>
+            <span>Back</span>
+          </button>
 
-      {/* Main Player Display Frame */}
-      <div className="relative aspect-video w-full bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800 flex items-center justify-center">
-        {loading && (
-          <div className="flex flex-col items-center gap-3 text-center p-6">
-            <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
-            <h3 className="text-lg font-semibold">Analyzing stream sources...</h3>
-            <p className="text-xs text-neutral-400">
-              Probing NetNaija, FzMovies, 123Movies, 1337x, and EZTV direct gateways
+          {stream?.provider && (
+            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-400">
+              Source: {stream.provider}
+            </span>
+          )}
+        </div>
+
+        {/* Player */}
+        <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">
+          {/* Loading */}
+          {loading && (
+            <div className="flex flex-col items-center gap-3 px-6 text-center">
+              <Loader2 className="h-10 w-10 animate-spin text-amber-500" />
+
+              <h2 className="text-lg font-semibold">
+                Loading stream...
+              </h2>
+
+              <p className="max-w-md text-xs text-neutral-400">
+                Finding a playable authorized stream for{" "}
+                <span className="text-neutral-200">
+                  {title}
+                </span>
+                .
+              </p>
+            </div>
+          )}
+
+          {/* Error */}
+          {!loading && error && (
+            <div className="flex max-w-md flex-col items-center gap-4 px-6 text-center">
+              <div className="rounded-full bg-red-500/10 p-4">
+                <AlertTriangle className="h-10 w-10 text-red-500" />
+              </div>
+
+              <div>
+                <h2 className="text-lg font-semibold">
+                  Unable to Play Video
+                </h2>
+
+                <p className="mt-2 text-sm text-neutral-400">
+                  {error}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {/* Video */}
+          {!loading &&
+            !error &&
+            stream && (
+              <>
+                <video
+                  ref={videoRef}
+                  controls
+                  autoPlay
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-contain"
+                  poster=""
+                />
+
+                {!videoReady && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30">
+                    <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+                  </div>
+                )}
+              </>
+            )}
+
+          {/* Empty state */}
+          {!loading &&
+            !error &&
+            !stream && (
+              <div className="flex flex-col items-center gap-3 text-center">
+                <PlayCircle className="h-12 w-12 text-neutral-600" />
+
+                <p className="text-sm text-neutral-400">
+                  No video source available.
+                </p>
+              </div>
+            )}
+        </div>
+
+        {/* Movie information */}
+        <div className="mt-6">
+          <h1 className="text-2xl font-bold">
+            {title}
+          </h1>
+
+          {type === "tv" && (
+            <p className="mt-1 text-sm text-neutral-400">
+              Season {season} — Episode {episode}
             </p>
-          </div>
-        )}
+          )}
 
-        {!loading && error && (
-          <div className="flex flex-col items-center gap-3 text-center p-6">
-            <AlertTriangle className="w-10 h-10 text-red-500" />
-            <h3 className="text-lg font-semibold">No Direct Stream Found</h3>
-            <p className="text-xs text-neutral-400">{error}</p>
-          </div>
-        )}
-
-        {!loading && stream && (
-          <video
-            ref={videoRef}
-            controls
-            autoPlay
-            playsInline
-            className="w-full h-full object-contain"
-          />
-        )}
-      </div>
-
-      {/* Metadata Info */}
-      <div className="mt-6">
-        <h1 className="text-2xl font-bold">{title}</h1>
-        {type === "tv" && (
-          <p className="text-sm text-neutral-400 mt-1">
-            Season {season} — Episode {episode}
-          </p>
-        )}
+          {tmdbId && (
+            <p className="mt-1 text-xs text-neutral-600">
+              TMDB ID: {tmdbId}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
