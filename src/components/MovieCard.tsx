@@ -17,11 +17,9 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
     e.preventDefault();
     if (!tmdbId) return;
 
-    // Direct embed endpoint to bypass landing pages
+    // SmashyStream plays directly in external tabs without landing page redirects
     const type = movie.media_type === "tv" ? "tv" : "movie";
-    const destinationPath = type === "tv"
-      ? `https://www.2embed.cc/embedtv/${tmdbId}`
-      : `https://www.2embed.cc/embed/${tmdbId}`;
+    const destinationPath = `https://player.smashy.stream/${type}/${tmdbId}`;
 
     window.open(destinationPath, "_blank", "noopener,noreferrer");
   };
