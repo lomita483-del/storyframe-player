@@ -24,6 +24,7 @@ import {
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { StreamingPlayer } from "@/components/StreamingPlayer";
 import { cn } from "@/lib/utils";
+import { extractStreamUrl } from "@/lib/scrapers/netnaija";
 
 type WatchSearch = {
   s?: number;
@@ -98,8 +99,8 @@ function WatchPage() {
   ]);
 
   /*
-   * 1. Dynamic Stream Extraction (/api/extract)
-   * Included 'title' parameter to support NetNaija, FzMovies & title-based fallback scrapers.
+   * 1. Dynamic Client-Side Stream Extraction
+   * Calls extractStreamUrl directly without hitting backend server endpoints.
    */
   const { data: extractedStream } = useQuery({
     queryKey: [
@@ -117,19 +118,14 @@ function WatchPage() {
         !movie?.direct_stream_url &&
         !movie?.video_url
     ),
-    queryFn: async () => {
-      try {
-        const titleParam = encodeURIComponent(movie!.title);
-        const res = await fetch(
-          `/api/extract?tmdbId=${movie!.tmdb_id ?? ""}&title=${titleParam}&type=${isShow ? "tv" : "movie"}&s=${activeSeason}&e=${episodeParam ?? 1}`
-        );
-        if (!res.ok) return null;
-        const data = await res.json();
-        return (data.streamUrl as string) ?? null;
-      } catch {
-        return null;
-      }
-    },
+    queryFn: () =>
+      extractStreamUrl(
+        movie?.tmdb_id,
+        movie?.title,
+        isShow ? "tv" : "movie",
+        activeSeason,
+        episodeParam ?? 1
+      ),
   });
 
   if (isLoading) {
