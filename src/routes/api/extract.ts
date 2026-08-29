@@ -1,4 +1,4 @@
-import { createAPIFileRoute } from "@tanstack/start/api";
+mport { createAPIFileRoute } from "@tanstack/start/api";
 import { scrapeNetNaija } from "@/lib/scrapers/netnaija";
 
 export const Route = createAPIFileRoute("/api/extract")({
@@ -12,7 +12,7 @@ export const Route = createAPIFileRoute("/api/extract")({
 
     let streamUrl: string | null = null;
 
-    // Strategy 1: Standard TMDB Scraper API (2Embed / AutoEmbed)
+    // Strategy 1: Standard TMDB Stream API (2Embed / AutoEmbed)
     if (tmdbId) {
       try {
         const providerUrl = `https://movie-api-v2.vercel.app/api/${type}?id=${tmdbId}${
@@ -21,7 +21,11 @@ export const Route = createAPIFileRoute("/api/extract")({
         const res = await fetch(providerUrl);
         if (res.ok) {
           const data = await res.json();
-          streamUrl = data.streamUrl || data.url || data.sources?.[0]?.url || null;
+          streamUrl =
+            data.streamUrl ??
+            data.url ??
+            data.sources?.[0]?.url ??
+            null;
         }
       } catch {
         streamUrl = null;
@@ -35,7 +39,9 @@ export const Route = createAPIFileRoute("/api/extract")({
 
     return new Response(
       JSON.stringify({ streamUrl }),
-      { headers: { "Content-Type": "application/json" } }
+      {
+        headers: { "Content-Type": "application/json" },
+      }
     );
   },
 });
