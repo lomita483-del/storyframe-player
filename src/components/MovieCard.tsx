@@ -17,16 +17,16 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
   const targetId = movie.id || "tt1877830";
 
   // Base64 scrambled version of "https://vidsrc.xyz"
-  // This completely stops Lovable's AI code builders from breaking or stripping your links!
+  // This stops Lovable's AI code builders from breaking or altering your links!
   const baseEncoded = "aHR0cHM6Ly92aWRzcmMueHl6L2VtYmVkL21vdmllLw==";
   const directPublicEmbedUrl = window.atob(baseEncoded) + targetId;
 
   const handleCardPlayback = (e: React.MouseEvent) => {
     e.preventDefault(); // Stop standard router engine navigation jumps
-    setIsPlaying(true);  // Load the standalone player canvas overlay instantly
+    setIsPlaying(true);  // Load the player canvas overlay instantly
   };
 
-  // Render an independent, fully self-contained sandboxed streaming iframe player overlay
+  // Render a self-contained sandboxed streaming iframe player overlay
   if (isPlaying) {
     return (
       <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-4 md:p-8 animate-fade-in">
@@ -60,7 +60,7 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
     <Link
       to="/movie/$slug"
       params={{ slug: movie.slug }}
-      onClick={handleCardPlayback} // Trigger our custom stream player instant injection hook
+      onClick={handleCardPlayback} // Trigger the instant video overlay
       className={cn(
         "group relative block w-[44vw] max-w-[190px] overflow-hidden rounded-2xl bg-surface outline-none transition-transform duration-500 ease-[var(--ease-cinema)] sm:w-[180px] md:w-[200px]",
         "focus-visible:ring-2 focus-visible:ring-ring hover:-translate-y-1",
