@@ -1,404 +1,153 @@
-import {
-  createFileRoute,
-  Link,
-  notFound,
-  useNavigate,
-} from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import {
-  ArrowLeft,
-  ChevronDown,
-  Loader2,
-  Tv,
-} from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
+import { ArrowLeft, Loader2, PlayCircle, AlertTriangle } from "lucide-react";
+import Hls from "hls.js";
+import WebTorrent from "webtorrent";
+import { fetchAutoStreamUrl, DirectStreamResult } from "@/lib/scrapers/streamResolver";
 
-import { movieBySlugQuery, saveProgress } from "@/lib/movies";
-import {
-  seasonsQuery,
-  episodesQuery,
-} from "@/lib/tv";
-import { VideoPlayer } from "@/components/VideoPlayer";
-import { cn } from "@/lib/utils";
-import { fetchAutoStreamUrl } from "@/lib/scrapers/streamResolver";
+interface WatchPageProps {
+  tmdbId?: number;
+  title?: string;
+  type?: "movie" | "tv";
+  season?: number;
+  episode?: number;
+  onBack?: () => void;
+}
 
-type WatchSearch = {
-  s?: number;
-  e?: number;
-};
+export const WatchSlugPage: React.FC<WatchPageProps> = ({
+  tmdbId = 1399, // Game of Thrones Default Example
+  title = "Game of Thrones",
+  type = "tv",
+  season = 1,
+  episode = 10,
+  onBack,
+}) => {
+  const [stream, setStream] = useState<DirectStreamResult | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-export const Route = createFileRoute("/watch/$slug")({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): WatchSearch => ({
-    s: Number(search["s"]) || undefined,
-    e: Number(search["e"]) || undefined,
-  }),
+  useEffect(() => {
+    let cancelled = false;
 
-  component: WatchPage,
-});
+    async function resolveMedia() {
+      setLoading(true);
+      setError(null);
+      setStream(null);
 
-function WatchPage() {
-  const { slug } = Route.useParams();
-  const {
-    s: seasonParam,
-    e: episodeParam,
-  } = Route.useSearch();
+      const result = await fetchAutoStreamUrl(tmdbId, title, type, season, episode);
 
-  const navigate = useNavigate();
+      if (cancelled) return;
 
-  const {
-    data: movie,
-    isLoading,
-  } = useQuery(movieBySlugQuery(slug));
-
-  const isShow = movie?.media_type === "tv";
-
-  const { data: seasons } = useQuery({
-    ...seasonsQuery(movie?.id),
-    enabled: Boolean(
-      isShow && movie?.id,
-    ),
-  });
-
-  const activeSeason =
-    seasonParam ??
-    seasons?.[0]?.season_number ??
-    1;
-
-  const { data: episodes } = useQuery({
-    ...episodesQuery(
-      movie?.id,
-      activeSeason,
-    ),
-    enabled: Boolean(
-      isShow && movie?.id,
-    ),
-  });
-
-  const episode = useMemo(() => {
-    if (!isShow || !episodes?.length) {
-      return null;
+      if (result) {
+        setStream(result);
+      } else {
+        setError("Direct media files could not be extracted across scrapers.");
+      }
+      setLoading(false);
     }
 
-    return (
-      episodes.find(
-        (item) =>
-          item.episode_number ===
-          (episodeParam ?? 1),
-      ) ?? episodes[0]!
-    );
-  }, [
-    episodes,
-    episodeParam,
-    isShow,
-  ]);
+    resolveMedia();
 
-  const activeEpisodeNumber = episode?.episode_number ?? episodeParam ?? 1;
+    return () => {
+      cancelled = true;
+    };
+  }, [tmdbId, title, type, season, episode]);
 
-  /*
-   * Resolve valid TMDB ID from movie object
-   */
-  const targetId = movie?.tmdb_id ?? movie?.id;
+  // Video Element Handler (HLS, MP4 & WebTorrent Magnet Playback)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !stream) return;
 
-  /*
-   * Direct Stream Extraction (Waterfall Scraper Call)
-   */
-  const { data: autoStream, isLoading: isExtractingStream } = useQuery({
-    queryKey: [
-      "auto-stream-resolver",
-      targetId,
-      movie?.title,
-      activeSeason,
-      activeEpisodeNumber,
-      isShow,
-    ],
-    enabled: Boolean(
-      movie &&
-        !episode?.direct_stream_url &&
-        !episode?.video_url &&
-        !movie?.direct_stream_url &&
-        !movie?.video_url
-    ),
-    queryFn: () =>
-      fetchAutoStreamUrl(
-        targetId,
-        movie?.title,
-        isShow ? "tv" : "movie",
-        activeSeason,
-        activeEpisodeNumber
-      ),
-    staleTime: 1000 * 60 * 30, // Cache resolved URL for 30 mins
-  });
+    let hlsInstance: Hls | null = null;
+    let torrentClient: WebTorrent.Instance | null = null;
 
-  if (isLoading) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-black">
-        <Loader2 className="size-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+    if (stream.type === "hls") {
+      if (Hls.isSupported()) {
+        hlsInstance = new Hls({ enableWorker: true });
+        hlsInstance.loadSource(stream.url);
+        hlsInstance.attachMedia(video);
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = stream.url;
+      }
+    } else if (stream.type === "mp4") {
+      video.src = stream.url;
+    } else if (stream.type === "torrent") {
+      // Torrent Magnet Streamer
+      torrentClient = new WebTorrent();
+      torrentClient.add(stream.url, (torrent) => {
+        const file = torrent.files.find((f) => f.name.endsWith(".mp4") || f.name.endsWith(".mkv"));
+        if (file) {
+          file.renderTo(video);
+        }
+      });
+    }
 
-  if (!movie) {
-    throw notFound();
-  }
-
-  /*
-   * Priority: Database Stream URL -> Scraped Direct Stream URL
-   */
-  const activeDirectStream =
-    episode?.direct_stream_url ??
-    episode?.video_url ??
-    movie?.direct_stream_url ??
-    movie?.video_url ??
-    autoStream?.url;
-
-  const directVideoType =
-    episode?.video_type ??
-    movie?.video_type ??
-    autoStream?.type ??
-    "hls";
-
-  const activeProvider = autoStream?.provider ?? "Direct Server Stream";
-
-  const subtitleUrl =
-    episode?.subtitle_url ??
-    movie?.subtitle_url ??
-    undefined;
-
-  const title = episode
-    ? `${movie.title} — S${activeSeason}:E${episode.episode_number}${
-        episode.name
-          ? ` ${episode.name}`
-          : ""
-      }`
-    : movie.title;
+    return () => {
+      if (hlsInstance) hlsInstance.destroy();
+      if (torrentClient) torrentClient.destroy();
+    };
+  }, [stream]);
 
   return (
-    <main className="min-h-screen bg-black pb-24">
-      <div className="mx-auto max-w-[1400px] px-3 pt-3 md:px-6 md:pt-5">
+    <div className="flex flex-col min-h-screen bg-black text-white p-4 max-w-7xl mx-auto">
+      {/* Top Header Controls */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-md text-sm transition"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back
+        </button>
 
-        {/* BACK BUTTON & PROVIDER BADGE */}
-        <div className="flex items-center justify-between">
-          <Link
-            to="/movie/$slug"
-            params={{ slug }}
-            className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/90 transition-colors hover:bg-white/20"
-          >
-            <ArrowLeft className="size-4" />
-            Back
-          </Link>
-
-          {activeDirectStream && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
-              <Tv className="size-3 text-primary" />
-              Source: {activeProvider}
-            </span>
-          )}
-        </div>
-
-        {/* PLAYER CONTAINER */}
-        <div className="mt-3">
-          {activeDirectStream ? (
-            /* 1. Native Direct Video Player */
-            <VideoPlayer
-              src={activeDirectStream}
-              type={directVideoType}
-              title={title}
-              poster={
-                movie.backdrop_url ??
-                movie.poster_url ??
-                undefined
-              }
-              subtitleUrl={subtitleUrl}
-              onProgress={(seconds, duration) => {
-                void saveProgress({
-                  movieId: movie.id,
-                  progressSeconds: Math.floor(seconds),
-                  durationSeconds: Math.floor(duration),
-                });
-              }}
-            />
-          ) : isExtractingStream ? (
-            /* 2. Extraction In Progress Overlay */
-            <div className="grid aspect-video w-full place-items-center overflow-hidden rounded-2xl border border-white/10 bg-black/90 md:rounded-3xl">
-              <div className="flex flex-col items-center gap-3 text-center">
-                <Loader2 className="size-10 animate-spin text-primary" />
-                <div>
-                  <p className="text-base font-medium text-white">
-                    Analysing stream sources...
-                  </p>
-                  <p className="mt-1 text-xs text-white/50">
-                    Probing NetNaija, Sabishare, and media gateways
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* 3. Empty State */
-            <div className="grid aspect-video w-full place-items-center overflow-hidden rounded-2xl border border-white/10 bg-black/80 md:rounded-3xl">
-              <div className="max-w-md px-6 text-center">
-                <p className="text-base font-semibold text-white">
-                  No Direct Stream Found
-                </p>
-                <p className="mt-2 text-sm text-white/60">
-                  Direct media files could not be extracted for this title.
-                </p>
-
-                {movie.where_to_watch && movie.where_to_watch.length > 0 && (
-                  <div className="mt-5 flex flex-wrap justify-center gap-2">
-                    {movie.where_to_watch.map(
-                      (link: { name: string; url: string }) => (
-                        <a
-                          key={`${link.name}-${link.url}`}
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10"
-                        >
-                          Watch on {link.name}
-                        </a>
-                      ),
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* TITLE */}
-        <h1 className="mt-4 text-lg font-semibold text-white md:text-2xl">
-          {title}
-        </h1>
-
-        {/* TV EPISODES LIST */}
-        {isShow && seasons && seasons.length > 0 && (
-          <section className="mt-8">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-base font-semibold text-white">
-                Episodes
-              </h2>
-
-              <SeasonPicker
-                seasons={seasons.map((item) => item.season_number)}
-                active={activeSeason}
-                onSelect={(value) => {
-                  void navigate({
-                    to: "/watch/$slug",
-                    params: { slug },
-                    search: {
-                      s: value,
-                      e: 1,
-                    },
-                  });
-                }}
-              />
-            </div>
-
-            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {(episodes ?? []).map((item) => {
-                const active =
-                  item.episode_number === (episode?.episode_number ?? 1);
-
-                return (
-                  <Link
-                    key={item.id}
-                    to="/watch/$slug"
-                    params={{ slug }}
-                    search={{
-                      s: activeSeason,
-                      e: item.episode_number,
-                    }}
-                    className={cn(
-                      "flex gap-3 rounded-2xl border p-2.5 transition-colors",
-                      active
-                        ? "border-primary/60 bg-primary/10"
-                        : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]",
-                    )}
-                  >
-                    {item.still_url ? (
-                      <img
-                        src={item.still_url}
-                        alt=""
-                        loading="lazy"
-                        className="h-16 w-28 shrink-0 rounded-xl object-cover"
-                      />
-                    ) : (
-                      <div className="h-16 w-28 shrink-0 rounded-xl bg-white/10" />
-                    )}
-
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-white">
-                        {item.episode_number}.{" "}
-                        {item.name ?? `Episode ${item.episode_number}`}
-                      </p>
-
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
-                        {item.overview ?? "No description available."}
-                      </p>
-                    </div>
-                  </Link>
-                );
-              })}
-
-              {!episodes?.length && (
-                <p className="text-sm text-muted-foreground">
-                  No episodes imported for this season yet.
-                </p>
-              )}
-            </div>
-          </section>
+        {stream?.provider && (
+          <span className="px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 text-xs rounded-full">
+            Source: {stream.provider}
+          </span>
         )}
       </div>
-    </main>
-  );
-}
 
-function SeasonPicker({
-  seasons,
-  active,
-  onSelect,
-}: {
-  seasons: number[];
-  active: number;
-  onSelect: (value: number) => void;
-}) {
-  const [open, setOpen] = useState(false);
+      {/* Main Player Display Frame */}
+      <div className="relative aspect-video w-full bg-neutral-900 rounded-xl overflow-hidden border border-neutral-800 flex items-center justify-center">
+        {loading && (
+          <div className="flex flex-col items-center gap-3 text-center p-6">
+            <Loader2 className="w-10 h-10 text-amber-500 animate-spin" />
+            <h3 className="text-lg font-semibold">Analyzing stream sources...</h3>
+            <p className="text-xs text-neutral-400">
+              Probing NetNaija, FzMovies, 123Movies, 1337x, and EZTV direct gateways
+            </p>
+          </div>
+        )}
 
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm text-white/90 hover:bg-white/20"
-      >
-        Season {active}
-        <ChevronDown className="size-4" />
-      </button>
+        {!loading && error && (
+          <div className="flex flex-col items-center gap-3 text-center p-6">
+            <AlertTriangle className="w-10 h-10 text-red-500" />
+            <h3 className="text-lg font-semibold">No Direct Stream Found</h3>
+            <p className="text-xs text-neutral-400">{error}</p>
+          </div>
+        )}
 
-      {open && (
-        <div className="absolute z-20 mt-1 max-h-64 w-40 overflow-auto rounded-xl border border-white/10 bg-surface p-1 shadow-xl">
-          {seasons.map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => {
-                onSelect(value);
-                setOpen(false);
-              }}
-              className={cn(
-                "block w-full rounded-lg px-3 py-1.5 text-left text-sm hover:bg-white/10",
-                value === active
-                  ? "text-primary"
-                  : "text-white/85",
-              )}
-            >
-              Season {value}
-            </button>
-          ))}
-        </div>
-      )}
+        {!loading && stream && (
+          <video
+            ref={videoRef}
+            controls
+            autoPlay
+            playsInline
+            className="w-full h-full object-contain"
+          />
+        )}
+      </div>
+
+      {/* Metadata Info */}
+      <div className="mt-6">
+        <h1 className="text-2xl font-bold">{title}</h1>
+        {type === "tv" && (
+          <p className="text-sm text-neutral-400 mt-1">
+            Season {season} — Episode {episode}
+          </p>
+        )}
+      </div>
     </div>
   );
-}
+};
+
+export default WatchSlugPage;
