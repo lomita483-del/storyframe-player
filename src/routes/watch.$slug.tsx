@@ -96,12 +96,17 @@ function WatchPage() {
   const activeEpisodeNumber = episode?.episode_number ?? episodeParam ?? 1;
 
   /*
+   * Resolve valid TMDB ID from movie object
+   */
+  const targetId = movie?.tmdb_id ?? movie?.id;
+
+  /*
    * Direct Stream Extraction (MovieBox Style Scraper)
    */
   const { data: autoStream, isLoading: isExtractingStream } = useQuery({
     queryKey: [
       "auto-stream-resolver",
-      movie?.tmdb_id,
+      targetId,
       movie?.title,
       activeSeason,
       activeEpisodeNumber,
@@ -116,7 +121,7 @@ function WatchPage() {
     ),
     queryFn: () =>
       fetchAutoStreamUrl(
-        movie?.tmdb_id,
+        targetId,
         movie?.title,
         isShow ? "tv" : "movie",
         activeSeason,
