@@ -41,6 +41,27 @@ function WatchPage() {
     return episodes.find((item) => item.episode_number === (episodeNumber ?? 1)) ?? episodes[0]!;
   }, [episodes, episodeNumber, isShow]);
 
+  // --- STEP 3 EXTRACTION HOOK ---
+  // If no native database URL exists, extract the direct m3u8 stream from your backend scraper API
+  const { data: extractedStream } = useQuery({
+    queryKey: ["extracted-stream", movie?.tmdb_id, activeSeason, episodeNumber, isShow],
+    enabled: Boolean(
+      movie?.tmdb_id &&
+        !episode?.direct_stream_url &&
+        !episode?.video_url &&
+        !movie?.direct_stream_url &&
+        !movie?.video_url
+    ),
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/extract?tmdbId=${movie!.tmdb_id}&type=${isShow ? "tv" : "movie"}&s=${activeSeason}&e=${episodeNumber ?? 1}`
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      return (data.streamUrl as string) ?? null;
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="grid min-h-screen place-items-center bg-black">
@@ -51,9 +72,14 @@ function WatchPage() {
 
   if (!movie) throw notFound();
 
-  /* Native full-length source takes priority: owned / licensed / public-domain files. */
+  /* Native full-length source (Database URL OR Extracted Scraper URL) */
   const nativeSrc =
-    episode?.direct_stream_url ?? episode?.video_url ?? movie.direct_stream_url ?? movie.video_url;
+    episode?.direct_stream_url ??
+    episode?.video_url ??
+    movie.direct_stream_url ??
+    movie.video_url ??
+    extractedStream;
+
   const nativeType = episode ? episode.video_type : movie.video_type;
   const subtitleUrl = episode?.subtitle_url ?? movie.subtitle_url ?? undefined;
 
@@ -112,12 +138,6 @@ function WatchPage() {
         </div>
 
         <h1 className="mt-4 text-lg font-semibold text-white md:text-2xl">{title}</h1>
-        {!nativeSrc && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            No authorized full-length file is attached to this title yet — add a direct stream URL in
-            the admin dashboard for native playback with subtitles and seek controls.
-          </p>
-        )}
 
         {isShow && seasons && seasons.length > 0 && (
           <section className="mt-8">
