@@ -7,10 +7,14 @@ import {
   PlayCircle,
 } from "lucide-react";
 import Hls from "hls.js";
-import {
-  fetchAutoStreamUrl,
-  type DirectStreamResult,
-} from "@/lib/scrapers/streamResolver";
+import { movieBySlugQuery } from "@/lib/movies";
+
+type DirectStreamResult = {
+  url: string;
+  type: "hls" | "mp4" | "torrent";
+  provider?: string;
+};
+
 
 interface WatchSearchParams {
   tmdbId?: number;
