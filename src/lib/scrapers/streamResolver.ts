@@ -17,7 +17,7 @@ export async function fetchAutoStreamUrl(
     const cleanTitle = title.replace(/\s+\d+$/, "").trim();
     console.log(`[streamResolver] Resolving stream for: ${cleanTitle}`);
 
-    const searchUrl = `https://www.thenetnaija.net/search?t=${encodeURIComponent(cleanTitle)}`;
+    const searchUrl = `https://www.thenetnaija.ng/search?t=${encodeURIComponent(cleanTitle)}`;
     const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchUrl)}`;
     
     const response = await fetch(proxyUrl);
