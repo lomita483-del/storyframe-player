@@ -35,6 +35,14 @@ function toNumber(value: unknown): number | undefined {
   return undefined;
 }
 
+function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const match = url.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/,
+  );
+  return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1` : url;
+}
+
 export const Route = createFileRoute("/watch/$slug")({
   validateSearch: (search: Record<string, unknown>): WatchSearchParams => ({
     tmdbId: toNumber(search["tmdbId"]),
