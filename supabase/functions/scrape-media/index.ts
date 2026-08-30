@@ -1,30 +1,79 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+export type DirectStreamResult = {
+  url: string;
+  type: "hls" | "mp4" | "torrent";
+  provider?: string;
+};
 
-serve(async (req) => {
-  const url = new URL(req.url);
-  const title = url.searchParams.get("title");
-  const type = url.searchParams.get("type");
-
-  if (!title) {
-    return new Response(JSON.stringify({ error: "Missing title" }), { status: 400 });
-  }
+export async function fetchAutoStreamUrl(
+  title?: string,
+  type: "movie" | "tv" = "movie",
+  season: number = 1,
+  episode: number = 1
+): Promise<DirectStreamResult | null> {
+  if (!title) return null;
 
   try {
-    // Example: Fetch search results from your preferred index or aggregator API
-    // and extract the direct .mp4 or .m3u8 CDN link without returning iframes or ads.
+    // 1. Search via CORS proxy to bypass browser restrictions
+    const searchUrl = `https://www.thenetnaija.net/search?t=${encodeURIComponent(title)}`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchUrl)}`;
+    
+    const response = await fetch(proxyUrl);
+    if (!response.ok) throw new Error("Failed to reach search index.");
+    
+    const htmlText = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, "text/html");
 
-    // Placeholder for your scraper logic parsing the target site:
-    const directVideoUrl = `https://example-cdn.com/stream/${encodeURIComponent(title)}.mp4`;
+    // 2. Find the first matching post link
+    let targetPostUrl = "";
+    const searchItems = doc.querySelectorAll("div.search-item, article.post, .loop-content article");
+    for (const item of Array.from(searchItems)) {
+      const link = item.querySelector("h3 a, h2 a, a.post-title")?.getAttribute("href");
+      if (link) {
+        targetPostUrl = link;
+        break;
+      }
+    }
 
-    return new Response(
-      JSON.stringify({
-        url: directVideoUrl,
-        type: "mp4",
-        provider: "Direct Index Scraper",
-      }),
-      { headers: { "Content-Type": "application/json" } }
-    );
+    if (!targetPostUrl) return null;
+
+    // 3. Fetch the individual post page via proxy
+    const postProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetPostUrl)}`;
+    const postRes = await fetch(postProxyUrl);
+    if (!postRes.ok) return null;
+
+    const postHtmlText = await postRes.text();
+    const postDoc = parser.parseFromString(postHtmlText, "text/html");
+
+    // 4. Extract direct .mp4 link
+    let directDownloadUrl = "";
+    const anchors = postDoc.querySelectorAll("a");
+    for (const a of Array.from(anchors)) {
+      const href = a.getAttribute("href");
+      const text = a.textContent?.toLowerCase() || "";
+      if (href && (href.endsWith(".mp4") || text.includes("download") || text.includes("server"))) {
+        if (href.startsWith("http")) {
+          directDownloadUrl = href;
+          break;
+        }
+      }
+    }
+
+    if (!directDownloadUrl) {
+      const btn = postDoc.querySelector(".download-btn, .btn-download, a.download");
+      directDownloadUrl = btn?.getAttribute("href") || "";
+    }
+
+    if (!directDownloadUrl) return null;
+
+    return {
+      url: directDownloadUrl,
+      type: "mp4",
+      provider: "NetNaija Index",
+    };
+
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    console.error("[streamResolver] Error:", err);
+    return null;
   }
-});
+}
