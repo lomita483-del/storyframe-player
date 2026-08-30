@@ -4,6 +4,64 @@ export type DirectStreamResult = {
   provider?: string;
 };
 
+async function scrapeNetNaija(cleanTitle: string): Promise<string | null> {
+  const searchUrl = `https://www.thenetnaija.net/search?t=${encodeURIComponent(cleanTitle)}`;
+  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchUrl)}`;
+  
+  const res = await fetch(proxyUrl);
+  if (!res.ok) return null;
+  
+  const htmlText = await res.text();
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlText, "text/html");
+
+  let targetPostUrl = "";
+  const items = doc.querySelectorAll("div.search-item, article.post, .loop-content article");
+  for (const item of Array.from(items)) {
+    const link = item.querySelector("h3 a, h2 a, a.post-title")?.getAttribute("href");
+    if (link) {
+      targetPostUrl = link;
+      break;
+    }
+  }
+
+  if (!targetPostUrl) return null;
+
+  const postRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetPostUrl)}`);
+  if (!postRes.ok) return null;
+  
+  const postHtml = await postRes.text();
+  const postDoc = parser.parseFromString(postHtml, "text/html");
+
+  const anchors = postDoc.querySelectorAll("a");
+  for (const a of Array.from(anchors)) {
+    const href = a.getAttribute("href") || "";
+    const text = (a.textContent || "").toLowerCase();
+    if ((href.endsWith(".mp4") || text.includes("download")) && href.startsWith("http")) {
+      return href;
+    }
+  }
+  return null;
+}
+
+async function scrapeFzMovies(cleanTitle: string): Promise<string | null> {
+  // Fallback/secondary source provider pattern
+  const searchUrl = `https://fzmovies.net/search.aspx?search=${encodeURIComponent(cleanTitle)}`;
+  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchUrl)}`;
+  
+  const res = await fetch(proxyUrl);
+  if (!res.ok) return null;
+  
+  const htmlText = await res.text();
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlText, "text/html");
+  
+  const link = doc.querySelector(".main_link, .download-btn, a")?.getAttribute("href");
+  if (link && link.startsWith("http")) return link;
+  
+  return null;
+}
+
 export async function fetchAutoStreamUrl(
   title?: string,
   type: "movie" | "tv" = "movie",
@@ -12,75 +70,32 @@ export async function fetchAutoStreamUrl(
 ): Promise<DirectStreamResult | null> {
   if (!title) return null;
 
-  try {
-    // Clean up tracking numbers from the title (e.g., "In The Grey 1122573" -> "In The Grey")
-    const cleanTitle = title.replace(/\s+\d+$/, "").trim();
-    console.log(`[streamResolver] Resolving stream for: ${cleanTitle}`);
+  const cleanTitle = title.replace(/\s+\d+$/, "").trim();
+  console.log(`[streamResolver] Multi-scraper searching for: ${cleanTitle}`);
 
-    const searchUrl = `https://www.thenetnaija.ng/search?t=${encodeURIComponent(cleanTitle)}`;
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchUrl)}`;
-    
-    const response = await fetch(proxyUrl);
-    if (!response.ok) return null;
-    
-    const htmlText = await response.text();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlText, "text/html");
+  // Array of scrapers to run concurrently or sequentially until one succeeds
+  const scrapers = [
+    { name: "NetNaija Index", fn: () => scrapeNetNaija(cleanTitle) },
+    { name: "FzMovies Index", fn: () => scrapeFzMovies(cleanTitle) },
+  ];
 
-    // Find the first post link from search results
-    let targetPostUrl = "";
-    const searchItems = doc.querySelectorAll("div.search-item, article.post, .loop-content article, .posts-list article");
-    for (const item of Array.from(searchItems)) {
-      const link = item.querySelector("h3 a, h2 a, a.post-title, .title a")?.getAttribute("href");
-      if (link) {
-        targetPostUrl = link;
-        break;
+  for (const scraper of scrapers) {
+    try {
+      console.log(`[streamResolver] Trying scraper: ${scraper.name}`);
+      const streamUrl = await scraper.fn();
+      if (streamUrl) {
+        console.log(`[streamResolver] Success with ${scraper.name}!`);
+        return {
+          url: streamUrl,
+          type: "mp4",
+          provider: scraper.name,
+        };
       }
+    } catch (err) {
+      console.warn(`[streamResolver] Scraper ${scraper.name} failed:`, err);
     }
-
-    if (!targetPostUrl) {
-      console.warn("[streamResolver] No matching post link found.");
-      return null;
-    }
-
-    // Fetch the target post page
-    const postProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetPostUrl)}`;
-    const postRes = await fetch(postProxyUrl);
-    if (!postRes.ok) return null;
-
-    const postHtmlText = await postRes.text();
-    const postDoc = parser.parseFromString(postHtmlText, "text/html");
-
-    // Look for download buttons or direct mp4 files inside the post
-    let directDownloadUrl = "";
-    const anchors = postDoc.querySelectorAll("a");
-    for (const a of Array.from(anchors)) {
-      const href = a.getAttribute("href") || "";
-      const text = (a.textContent || "").toLowerCase();
-      
-      if (href.endsWith(".mp4") || text.includes("download") || text.includes("server")) {
-        if (href.startsWith("http")) {
-          directDownloadUrl = href;
-          break;
-        }
-      }
-    }
-
-    if (!directDownloadUrl) {
-      const fallbackBtn = postDoc.querySelector(".download-btn, .btn-download, a.download, .download-link");
-      directDownloadUrl = fallbackBtn?.getAttribute("href") || "";
-    }
-
-    if (!directDownloadUrl) return null;
-
-    return {
-      url: directDownloadUrl,
-      type: "mp4",
-      provider: "NetNaija Index",
-    };
-
-  } catch (err) {
-    console.error("[streamResolver] Error resolving stream:", err);
-    return null;
   }
+
+  console.error("[streamResolver] All scrapers exhausted. No stream found.");
+  return null;
 }
