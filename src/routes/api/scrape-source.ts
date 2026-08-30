@@ -1,41 +1,44 @@
+import { createAPIFileRoute } from '@tanstack/start/api';
 import * as cheerio from 'cheerio';
 
-export default async function handler(req: Request) {
-  const url = new URL(req.url);
-  const query = url.searchParams.get('query') || '';
-  const tmdbId = url.searchParams.get('tmdbId') || '';
-  const type = url.searchParams.get('type') || 'movie';
-  const season = url.searchParams.get('season') || '1';
-  const episode = url.searchParams.get('episode') || '1';
+export const Route = createAPIFileRoute('/api/scrape-source')({
+  GET: async ({ request }) => {
+    const url = new URL(request.url);
+    const query = url.searchParams.get('query') || '';
+    const tmdbId = url.searchParams.get('tmdbId') || '';
+    const type = url.searchParams.get('type') || 'movie';
+    const season = url.searchParams.get('season') || '1';
+    const episode = url.searchParams.get('episode') || '1';
 
-  const sFormatted = season.padStart(2, '0');
-  const eFormatted = episode.padStart(2, '0');
-  const searchTitle = type === 'tv' ? `${query} S${sFormatted}E${eFormatted}` : query;
+    const sFormatted = season.padStart(2, '0');
+    const eFormatted = episode.padStart(2, '0');
+    const searchTitle = type === 'tv' ? `${query} S${sFormatted}E${eFormatted}` : query;
 
-  // Multi-provider execution order
-  const providers = [
-    () => scrapeNetNaija(searchTitle),
-    () => scrapeFzMovies(query, type),
-    () => scrape123Movies(query, tmdbId, type, season, episode),
-    () => scrape1337x(searchTitle),
-    () => scrapeEZTV(query, season, episode),
-  ];
+    // Multi-site scraper execution pipeline
+    const providers = [
+      () => scrapeNetNaija(searchTitle),
+      () => scrapeFzMovies(query, type),
+      () => scrape123Movies(query, tmdbId, type, season, episode),
+      () => scrape1337x(searchTitle),
+      () => scrapeEZTV(query, season, episode),
+    ];
 
-  for (const provider of providers) {
-    const result = await provider();
-    if (result) {
-      return new Response(JSON.stringify(result), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
+    for (const provider of providers) {
+      const result = await provider();
+      if (result) {
+        return new Response(JSON.stringify(result), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
     }
-  }
 
-  return new Response(
-    JSON.stringify({ error: 'No direct stream found across providers.' }),
-    { status: 404, headers: { 'Content-Type': 'application/json' } }
-  );
-}
+    return new Response(
+      JSON.stringify({ error: 'No direct stream found across providers.' }),
+      { status: 404, headers: { 'Content-Type': 'application/json' } }
+    );
+  },
+});
 
 // Provider 1: NetNaija Direct MP4 Scraper
 async function scrapeNetNaija(term: string) {
