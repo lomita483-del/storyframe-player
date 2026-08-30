@@ -7,52 +7,43 @@ import {
   PlayCircle,
 } from "lucide-react";
 import Hls from "hls.js";
-import {
-  fetchAutoStreamUrl,
-  type DirectStreamResult,
-} from "@/lib/scrapers/streamResolver";
+import { useQuery } from "@tanstack/react-query";
+import { movieBySlugQuery } from "@/lib/movies";
+
+type DirectStreamResult = {
+  url: string;
+  type: "hls" | "mp4" | "torrent";
+  provider?: string | undefined;
+};
+
 
 interface WatchSearchParams {
-  tmdbId?: number;
-  title?: string;
-  type?: "movie" | "tv";
-  season?: number;
-  episode?: number;
+  tmdbId?: number | undefined;
+  title?: string | undefined;
+  type?: "movie" | "tv" | undefined;
+  season?: number | undefined;
+  episode?: number | undefined;
+}
+
+
+function toNumber(value: unknown): number | undefined {
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }
 
 export const Route = createFileRoute("/watch/$slug")({
   validateSearch: (search: Record<string, unknown>): WatchSearchParams => ({
-    tmdbId:
-      typeof search.tmdbId === "number"
-        ? search.tmdbId
-        : typeof search.tmdbId === "string" && search.tmdbId
-          ? Number(search.tmdbId)
-          : undefined,
-
-    title:
-      typeof search.title === "string"
-        ? search.title
-        : undefined,
-
-    type:
-      search.type === "tv" || search.type === "movie"
-        ? search.type
-        : "movie",
-
-    season:
-      typeof search.season === "number"
-        ? search.season
-        : typeof search.season === "string" && search.season
-          ? Number(search.season)
-          : 1,
-
-    episode:
-      typeof search.episode === "number"
-        ? search.episode
-        : typeof search.episode === "string" && search.episode
-          ? Number(search.episode)
-          : 1,
+    tmdbId: toNumber(search["tmdbId"]),
+    title: typeof search["title"] === "string" ? search["title"] : undefined,
+    type: search["type"] === "tv" ? "tv" : "movie",
+    season: toNumber(search["season"]) ?? 1,
+    episode: toNumber(search["episode"]) ?? 1,
   }),
+
 
   component: WatchSlugPage,
 });
@@ -100,79 +91,46 @@ function WatchSlugPage() {
   );
 
   /*
-   * Resolve the stream.
+   * Resolve the stream from our own catalogue (owned / licensed sources only).
    */
-  useEffect(() => {
-    let cancelled = false;
+  const movieQuery = useQuery(movieBySlugQuery(slug));
 
-    async function resolveMedia() {
+  useEffect(() => {
+    if (movieQuery.isLoading) {
       setLoading(true);
       setError(null);
       setStream(null);
       setVideoReady(false);
-
-      if (!tmdbId && !title) {
-        if (!cancelled) {
-          setError(
-            "This movie does not contain enough information to locate a stream.",
-          );
-          setLoading(false);
-        }
-
-        return;
-      }
-
-      try {
-        const result = await fetchAutoStreamUrl(
-          tmdbId,
-          title,
-          type,
-          season,
-          episode,
-        );
-
-        if (cancelled) {
-          return;
-        }
-
-        if (!result) {
-          setError(
-            "No playable stream was found for this title. Please try again later.",
-          );
-          setLoading(false);
-          return;
-        }
-
-        setStream(result);
-        setLoading(false);
-      } catch (error) {
-        console.error(
-          "[WatchPage] Stream resolution failed:",
-          error,
-        );
-
-        if (!cancelled) {
-          setError(
-            "Unable to load the video stream. Please try again.",
-          );
-
-          setLoading(false);
-        }
-      }
+      return;
     }
 
-    resolveMedia();
+    if (movieQuery.isError) {
+      setError("Unable to load the video stream. Please try again.");
+      setLoading(false);
+      return;
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    tmdbId,
-    title,
-    type,
-    season,
-    episode,
-  ]);
+    const movie = movieQuery.data;
+    const url = movie?.direct_stream_url || movie?.video_url || null;
+
+    if (!url) {
+      setStream(null);
+      setError(
+        "No authorized stream is configured for this title yet.",
+      );
+      setLoading(false);
+      return;
+    }
+
+    setStream({
+      url,
+      type: url.includes(".m3u8") ? "hls" : "mp4",
+      provider: movie?.title ?? undefined,
+    });
+    setError(null);
+    setLoading(false);
+  }, [movieQuery.isLoading, movieQuery.isError, movieQuery.data]);
+
 
   /*
    * Configure video playback.
