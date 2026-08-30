@@ -13,33 +13,74 @@ export async function fetchAutoStreamUrl(
   if (!title) return null;
 
   try {
-    // Construct the target search query for NetNaija (or your index of choice)
-    const targetUrl = `https://www.thenetnaija.net/search?t=${encodeURIComponent(title)}`;
+    // Clean up tracking numbers from the title (e.g., "In The Grey 1122573" -> "In The Grey")
+    const cleanTitle = title.replace(/\s+\d+$/, "").trim();
+    console.log(`[streamResolver] Resolving stream for: ${cleanTitle}`);
+
+    const searchUrl = `https://www.thenetnaija.net/search?t=${encodeURIComponent(cleanTitle)}`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchUrl)}`;
     
-    // Use a public CORS proxy to safely fetch the search page content from the browser
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-
     const response = await fetch(proxyUrl);
-    if (!response.ok) {
-      throw new Error("Failed to reach media index via proxy.");
-    }
-
+    if (!response.ok) return null;
+    
     const htmlText = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, "text/html");
 
-    // Simple pattern matching to extract an .mp4 file link from the returned page HTML
-    const mp4Match = htmlText.match(/https?:\/\/[^\s"'<>]+\.mp4/i);
-
-    if (mp4Match && mp4Match[0]) {
-      return {
-        url: mp4Match[0],
-        type: "mp4",
-        provider: "NetNaija Direct Scraper",
-      };
+    // Find the first post link from search results
+    let targetPostUrl = "";
+    const searchItems = doc.querySelectorAll("div.search-item, article.post, .loop-content article, .posts-list article");
+    for (const item of Array.from(searchItems)) {
+      const link = item.querySelector("h3 a, h2 a, a.post-title, .title a")?.getAttribute("href");
+      if (link) {
+        targetPostUrl = link;
+        break;
+      }
     }
 
-    return null;
+    if (!targetPostUrl) {
+      console.warn("[streamResolver] No matching post link found.");
+      return null;
+    }
+
+    // Fetch the target post page
+    const postProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetPostUrl)}`;
+    const postRes = await fetch(postProxyUrl);
+    if (!postRes.ok) return null;
+
+    const postHtmlText = await postRes.text();
+    const postDoc = parser.parseFromString(postHtmlText, "text/html");
+
+    // Look for download buttons or direct mp4 files inside the post
+    let directDownloadUrl = "";
+    const anchors = postDoc.querySelectorAll("a");
+    for (const a of Array.from(anchors)) {
+      const href = a.getAttribute("href") || "";
+      const text = (a.textContent || "").toLowerCase();
+      
+      if (href.endsWith(".mp4") || text.includes("download") || text.includes("server")) {
+        if (href.startsWith("http")) {
+          directDownloadUrl = href;
+          break;
+        }
+      }
+    }
+
+    if (!directDownloadUrl) {
+      const fallbackBtn = postDoc.querySelector(".download-btn, .btn-download, a.download, .download-link");
+      directDownloadUrl = fallbackBtn?.getAttribute("href") || "";
+    }
+
+    if (!directDownloadUrl) return null;
+
+    return {
+      url: directDownloadUrl,
+      type: "mp4",
+      provider: "NetNaija Index",
+    };
+
   } catch (err) {
-    console.error("[streamResolver] Failed to resolve direct stream:", err);
+    console.error("[streamResolver] Error resolving stream:", err);
     return null;
   }
 }
