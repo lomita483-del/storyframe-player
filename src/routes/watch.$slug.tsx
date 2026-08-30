@@ -5,6 +5,7 @@ import {
   Loader2,
   AlertTriangle,
   PlayCircle,
+  ExternalLink,
 } from "lucide-react";
 import Hls from "hls.js";
 import { useQuery } from "@tanstack/react-query";
@@ -33,6 +34,14 @@ function toNumber(value: unknown): number | undefined {
     return Number.isFinite(parsed) ? parsed : undefined;
   }
   return undefined;
+}
+
+function getYouTubeEmbedUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const match = url.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/,
+  );
+  return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=1` : url;
 }
 
 export const Route = createFileRoute("/watch/$slug")({
@@ -94,6 +103,9 @@ function WatchSlugPage() {
    * Resolve the stream from our own catalogue (owned / licensed sources only).
    */
   const movieQuery = useQuery(movieBySlugQuery(slug));
+  const movie = movieQuery.data ?? null;
+  const trailerEmbedUrl = getYouTubeEmbedUrl(movie?.trailer_url);
+  const whereToWatch = movie?.where_to_watch ?? [];
 
   useEffect(() => {
     if (movieQuery.isLoading) {
@@ -115,9 +127,7 @@ function WatchSlugPage() {
 
     if (!url) {
       setStream(null);
-      setError(
-        "No authorized stream is configured for this title yet.",
-      );
+      setError(null);
       setLoading(false);
       return;
     }
@@ -402,18 +412,27 @@ function WatchSlugPage() {
               </>
             )}
 
-          {/* Empty state */}
-          {!loading &&
-            !error &&
-            !stream && (
-              <div className="flex flex-col items-center gap-3 text-center">
-                <PlayCircle className="h-12 w-12 text-neutral-600" />
+          {/* Trailer fallback */}
+          {!loading && !error && !stream && trailerEmbedUrl && (
+            <iframe
+              src={trailerEmbedUrl}
+              title={`${title} trailer`}
+              className="h-full w-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          )}
 
-                <p className="text-sm text-neutral-400">
-                  No video source available.
-                </p>
-              </div>
-            )}
+          {/* Empty state */}
+          {!loading && !error && !stream && !trailerEmbedUrl && (
+            <div className="flex max-w-md flex-col items-center gap-3 px-6 text-center">
+              <PlayCircle className="h-12 w-12 text-neutral-600" />
+
+              <p className="text-sm text-neutral-400">
+                No authorized stream or trailer is available for this title yet.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Movie information */}
@@ -422,14 +441,43 @@ function WatchSlugPage() {
             {title}
           </h1>
 
+          {!stream && trailerEmbedUrl && (
+            <p className="mt-1 text-sm text-amber-400">
+              Playing the official trailer — full stream not available yet.
+            </p>
+          )}
+
           {type === "tv" && (
             <p className="mt-1 text-sm text-neutral-400">
               Season {season} — Episode {episode}
             </p>
           )}
 
+          {whereToWatch.length > 0 && (
+            <div className="mt-6">
+              <h2 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
+                Where to watch
+              </h2>
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {whereToWatch.map((link) => (
+                  <li key={`${link.name}-${link.url}`}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-neutral-800"
+                    >
+                      {link.name}
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {tmdbId && (
-            <p className="mt-1 text-xs text-neutral-600">
+            <p className="mt-3 text-xs text-neutral-600">
               TMDB ID: {tmdbId}
             </p>
           )}
