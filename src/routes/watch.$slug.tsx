@@ -17,46 +17,31 @@ type DirectStreamResult = {
 
 
 interface WatchSearchParams {
-  tmdbId?: number;
-  title?: string;
-  type?: "movie" | "tv";
-  season?: number;
-  episode?: number;
+  tmdbId: number | undefined;
+  title: string | undefined;
+  type: "movie" | "tv";
+  season: number;
+  episode: number;
+}
+
+function toNumber(value: unknown): number | undefined {
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }
 
 export const Route = createFileRoute("/watch/$slug")({
   validateSearch: (search: Record<string, unknown>): WatchSearchParams => ({
-    tmdbId:
-      typeof search.tmdbId === "number"
-        ? search.tmdbId
-        : typeof search.tmdbId === "string" && search.tmdbId
-          ? Number(search.tmdbId)
-          : undefined,
-
-    title:
-      typeof search.title === "string"
-        ? search.title
-        : undefined,
-
-    type:
-      search.type === "tv" || search.type === "movie"
-        ? search.type
-        : "movie",
-
-    season:
-      typeof search.season === "number"
-        ? search.season
-        : typeof search.season === "string" && search.season
-          ? Number(search.season)
-          : 1,
-
-    episode:
-      typeof search.episode === "number"
-        ? search.episode
-        : typeof search.episode === "string" && search.episode
-          ? Number(search.episode)
-          : 1,
+    tmdbId: toNumber(search["tmdbId"]),
+    title: typeof search["title"] === "string" ? search["title"] : undefined,
+    type: search["type"] === "tv" ? "tv" : "movie",
+    season: toNumber(search["season"]) ?? 1,
+    episode: toNumber(search["episode"]) ?? 1,
   }),
+
 
   component: WatchSlugPage,
 });
