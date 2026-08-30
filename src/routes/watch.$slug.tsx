@@ -103,6 +103,9 @@ function WatchSlugPage() {
    * Resolve the stream from our own catalogue (owned / licensed sources only).
    */
   const movieQuery = useQuery(movieBySlugQuery(slug));
+  const movie = movieQuery.data ?? null;
+  const trailerEmbedUrl = getYouTubeEmbedUrl(movie?.trailer_url);
+  const whereToWatch = movie?.where_to_watch ?? [];
 
   useEffect(() => {
     if (movieQuery.isLoading) {
