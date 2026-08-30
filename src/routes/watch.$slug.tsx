@@ -123,9 +123,7 @@ function WatchSlugPage() {
 
     if (!url) {
       setStream(null);
-      setError(
-        "No authorized stream is configured for this title yet.",
-      );
+      setError(null);
       setLoading(false);
       return;
     }
