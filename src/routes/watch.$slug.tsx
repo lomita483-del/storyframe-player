@@ -7,6 +7,7 @@ import {
   PlayCircle,
 } from "lucide-react";
 import Hls from "hls.js";
+import { useQuery } from "@tanstack/react-query";
 import { movieBySlugQuery } from "@/lib/movies";
 
 type DirectStreamResult = {
