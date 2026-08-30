@@ -13,27 +13,31 @@ export async function fetchAutoStreamUrl(
   if (!title) return null;
 
   try {
-    // Call your Supabase Edge Function or backend scraper endpoint
-    // that handles searching NetNaija, FzMovies, 1377x, etc., and returning a direct media link.
-    const response = await fetch(
-      `/functions/v1/scrape-media?title=${encodeURIComponent(title)}&type=${type}&season=${season}&episode=${episode}`
-    );
+    // Construct the target search query for NetNaija (or your index of choice)
+    const targetUrl = `https://www.thenetnaija.net/search?t=${encodeURIComponent(title)}`;
+    
+    // Use a public CORS proxy to safely fetch the search page content from the browser
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
 
+    const response = await fetch(proxyUrl);
     if (!response.ok) {
-      throw new Error("Failed to fetch direct stream from scraper backend.");
+      throw new Error("Failed to reach media index via proxy.");
     }
 
-    const data = await response.json();
+    const htmlText = await response.text();
 
-    if (!data?.url) {
-      return null;
+    // Simple pattern matching to extract an .mp4 file link from the returned page HTML
+    const mp4Match = htmlText.match(/https?:\/\/[^\s"'<>]+\.mp4/i);
+
+    if (mp4Match && mp4Match[0]) {
+      return {
+        url: mp4Match[0],
+        type: "mp4",
+        provider: "NetNaija Direct Scraper",
+      };
     }
 
-    return {
-      url: data.url,
-      type: data.type || (data.url.includes(".m3u8") ? "hls" : "mp4"),
-      provider: data.provider || "Direct Scraper Index",
-    };
+    return null;
   } catch (err) {
     console.error("[streamResolver] Failed to resolve direct stream:", err);
     return null;
