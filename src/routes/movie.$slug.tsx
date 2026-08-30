@@ -310,7 +310,7 @@ function EpisodesSection({
               <Link
                 to="/watch/$slug"
                 params={{ slug }}
-                search={{ s: episode.season_number, e: episode.episode_number }}
+                search={{ season: episode.season_number, episode: episode.episode_number }}
                 className="flex gap-4 rounded-2xl border border-border bg-surface/60 p-3 transition-colors hover:bg-surface-2"
               >
                 {episode.still_url ? (
