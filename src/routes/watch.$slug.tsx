@@ -13,7 +13,7 @@ import { movieBySlugQuery } from "@/lib/movies";
 type DirectStreamResult = {
   url: string;
   type: "hls" | "mp4" | "torrent";
-  provider?: string;
+  provider?: string | undefined;
 };
 
 
