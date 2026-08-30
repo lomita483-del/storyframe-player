@@ -438,6 +438,41 @@ export type Database = {
           },
         ]
       }
+      watch_progress: {
+        Row: {
+          duration_seconds: number
+          id: string
+          movie_id: string
+          progress_seconds: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          duration_seconds?: number
+          id?: string
+          movie_id: string
+          progress_seconds?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          duration_seconds?: number
+          id?: string
+          movie_id?: string
+          progress_seconds?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_progress_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       watchlists: {
         Row: {
           created_at: string
