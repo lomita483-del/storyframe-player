@@ -90,79 +90,46 @@ function WatchSlugPage() {
   );
 
   /*
-   * Resolve the stream.
+   * Resolve the stream from our own catalogue (owned / licensed sources only).
    */
-  useEffect(() => {
-    let cancelled = false;
+  const movieQuery = useQuery(movieBySlugQuery(slug));
 
-    async function resolveMedia() {
+  useEffect(() => {
+    if (movieQuery.isLoading) {
       setLoading(true);
       setError(null);
       setStream(null);
       setVideoReady(false);
-
-      if (!tmdbId && !title) {
-        if (!cancelled) {
-          setError(
-            "This movie does not contain enough information to locate a stream.",
-          );
-          setLoading(false);
-        }
-
-        return;
-      }
-
-      try {
-        const result = await fetchAutoStreamUrl(
-          tmdbId,
-          title,
-          type,
-          season,
-          episode,
-        );
-
-        if (cancelled) {
-          return;
-        }
-
-        if (!result) {
-          setError(
-            "No playable stream was found for this title. Please try again later.",
-          );
-          setLoading(false);
-          return;
-        }
-
-        setStream(result);
-        setLoading(false);
-      } catch (error) {
-        console.error(
-          "[WatchPage] Stream resolution failed:",
-          error,
-        );
-
-        if (!cancelled) {
-          setError(
-            "Unable to load the video stream. Please try again.",
-          );
-
-          setLoading(false);
-        }
-      }
+      return;
     }
 
-    resolveMedia();
+    if (movieQuery.isError) {
+      setError("Unable to load the video stream. Please try again.");
+      setLoading(false);
+      return;
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    tmdbId,
-    title,
-    type,
-    season,
-    episode,
-  ]);
+    const movie = movieQuery.data;
+    const url = movie?.direct_stream_url || movie?.video_url || null;
+
+    if (!url) {
+      setStream(null);
+      setError(
+        "No authorized stream is configured for this title yet.",
+      );
+      setLoading(false);
+      return;
+    }
+
+    setStream({
+      url,
+      type: url.includes(".m3u8") ? "hls" : "mp4",
+      provider: movie?.title ?? undefined,
+    });
+    setError(null);
+    setLoading(false);
+  }, [movieQuery.isLoading, movieQuery.isError, movieQuery.data]);
+
 
   /*
    * Configure video playback.
