@@ -5,6 +5,7 @@ import {
   Loader2,
   AlertTriangle,
   PlayCircle,
+  ExternalLink,
 } from "lucide-react";
 import Hls from "hls.js";
 import { useQuery } from "@tanstack/react-query";
