@@ -17,12 +17,13 @@ type DirectStreamResult = {
 
 
 interface WatchSearchParams {
-  tmdbId: number | undefined;
-  title: string | undefined;
-  type: "movie" | "tv";
-  season: number;
-  episode: number;
+  tmdbId?: number | undefined;
+  title?: string | undefined;
+  type?: "movie" | "tv" | undefined;
+  season?: number | undefined;
+  episode?: number | undefined;
 }
+
 
 function toNumber(value: unknown): number | undefined {
   if (typeof value === "number") return value;
