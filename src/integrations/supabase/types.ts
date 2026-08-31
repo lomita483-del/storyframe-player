@@ -29,7 +29,7 @@ export type Database = {
           rating: number | null
           runtime: number | null
           season_id: string
-          season_number: number
+          season_number: number | null
           still_url: string | null
           subtitle_url: string | null
           tmdb_id: number | null
@@ -51,7 +51,7 @@ export type Database = {
           rating?: number | null
           runtime?: number | null
           season_id: string
-          season_number: number
+          season_number?: number | null
           still_url?: string | null
           subtitle_url?: string | null
           tmdb_id?: number | null
@@ -73,7 +73,7 @@ export type Database = {
           rating?: number | null
           runtime?: number | null
           season_id?: string
-          season_number?: number
+          season_number?: number | null
           still_url?: string | null
           subtitle_url?: string | null
           tmdb_id?: number | null
@@ -122,7 +122,7 @@ export type Database = {
       movies: {
         Row: {
           backdrop_url: string | null
-          cast: string[]
+          cast: string[] | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -144,7 +144,7 @@ export type Database = {
           poster_url: string | null
           provider: string | null
           provider_asset_id: string | null
-          quality: string | null
+          quality: string
           rating: number | null
           release_year: number | null
           runtime: number | null
@@ -160,7 +160,7 @@ export type Database = {
         }
         Insert: {
           backdrop_url?: string | null
-          cast?: string[]
+          cast?: string[] | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -182,7 +182,7 @@ export type Database = {
           poster_url?: string | null
           provider?: string | null
           provider_asset_id?: string | null
-          quality?: string | null
+          quality?: string
           rating?: number | null
           release_year?: number | null
           runtime?: number | null
@@ -198,7 +198,7 @@ export type Database = {
         }
         Update: {
           backdrop_url?: string | null
-          cast?: string[]
+          cast?: string[] | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -220,7 +220,7 @@ export type Database = {
           poster_url?: string | null
           provider?: string | null
           provider_asset_id?: string | null
-          quality?: string | null
+          quality?: string
           rating?: number | null
           release_year?: number | null
           runtime?: number | null
@@ -345,7 +345,7 @@ export type Database = {
           id: string
           inserted_count: number
           source: string
-          started_at: string
+          started_at: string | null
           status: string
           updated_at: string
           updated_count: number
@@ -357,7 +357,7 @@ export type Database = {
           id?: string
           inserted_count?: number
           source?: string
-          started_at?: string
+          started_at?: string | null
           status?: string
           updated_at?: string
           updated_count?: number
@@ -369,7 +369,7 @@ export type Database = {
           id?: string
           inserted_count?: number
           source?: string
-          started_at?: string
+          started_at?: string | null
           status?: string
           updated_at?: string
           updated_count?: number
@@ -507,7 +507,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      claim_first_admin: { Args: never; Returns: boolean }
+      claim_first_admin: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
