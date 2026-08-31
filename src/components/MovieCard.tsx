@@ -1,72 +1,54 @@
 import { Link } from "@tanstack/react-router";
-import { Play, Star } from "lucide-react";
-import type { Movie } from "@/lib/movies";
-import { cn } from "@/lib/utils";
+import { Play } from "lucide-react";
+import type { Movie } from "@/types/movie";
 
-type Props = {
+interface MovieCardProps {
   movie: Movie;
-  className?: string | undefined;
-  progressPercent?: number | undefined;
-};
+  className?: string;
+  index?: number;
+}
 
-export function MovieCard({ movie, className, progressPercent }: Props) {
+export function MovieCard({ movie, className }: MovieCardProps) {
   return (
     <Link
-      to="/movie/$slug"
-      params={{ slug: movie.slug }}
-      className={cn(
-        "group relative block w-[44vw] max-w-[190px] overflow-hidden rounded-2xl bg-surface outline-none transition-transform duration-500 ease-[var(--ease-cinema)] sm:w-[180px] md:w-[200px]",
-        "focus-visible:ring-2 focus-visible:ring-ring hover:-translate-y-1",
-        className,
-      )}
+      to="/watch/$slug"
+      params={{ slug: movie.id.toString() }}
+      search={{
+        tmdbId: movie.id,
+        title: movie.title || movie.name || "Unknown Title",
+        type: "movie",
+      }}
+      className={`relative group overflow-hidden rounded-lg ${className || ""}`}
     >
-      <div className="relative aspect-2/3 overflow-hidden rounded-2xl">
-        {movie.poster_url ? (
+      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-neutral-900">
+        {movie.poster_path ? (
           <img
-            src={movie.poster_url}
-            alt={`${movie.title} poster`}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-700 ease-[var(--ease-cinema)] group-hover:scale-[1.06]"
+            src={`https://image.tmdb.org/t/p/w500${movie.poster_path}`}
+            alt={movie.title || movie.name}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-surface-2 text-xs text-muted-foreground">
-            No artwork
+          <div className="flex h-full w-full items-center justify-center bg-neutral-800 text-neutral-400">
+            No poster
           </div>
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent opacity-80" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
-        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 p-3">
-          <span className="text-[11px] font-medium text-muted-foreground">
-            {movie.release_year ?? "—"}
-          </span>
-          {movie.rating != null && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-2 py-0.5 text-[11px] font-semibold text-primary backdrop-blur">
-              <Star className="size-3 fill-current" />
-              {movie.rating}
-            </span>
-          )}
-        </div>
-
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          <span className="grid size-12 place-items-center rounded-full bg-primary/90 text-primary-foreground shadow-glow">
-            <Play className="size-5 fill-current" />
-          </span>
-        </div>
-
-        {progressPercent != null && progressPercent > 0 && (
-          <div className="absolute inset-x-3 bottom-2 h-1 overflow-hidden rounded-full bg-foreground/20">
-            <div
-              className="h-full rounded-full bg-primary"
-              style={{ width: `${Math.min(100, progressPercent)}%` }}
-            />
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-500 text-black shadow-lg">
+            <Play className="h-6 w-6 fill-current" />
           </div>
-        )}
+        </div>
       </div>
 
-      <div className="px-1 pb-1 pt-2.5">
-        <h3 className="truncate text-sm font-semibold">{movie.title}</h3>
-        <p className="truncate text-xs text-muted-foreground">{movie.genre ?? "Movie"}</p>
+      <div className="mt-2">
+        <h3 className="truncate text-sm font-semibold text-white">
+          {movie.title || movie.name}
+        </h3>
+        <p className="text-xs text-neutral-400">
+          {movie.release_date?.slice(0, 4) || movie.first_air_date?.slice(0, 4) || ""}
+        </p>
       </div>
     </Link>
   );
