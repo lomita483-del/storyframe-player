@@ -32,7 +32,7 @@ export const Route = createFileRoute("/watch/$slug")({
           : undefined,
 
     title:
-      typeof search.title === "string"
+      typeof search.title === "string" && search.title.trim()
         ? search.title
         : undefined,
 
@@ -61,11 +61,18 @@ export const Route = createFileRoute("/watch/$slug")({
 
 function WatchSlugPage() {
   const navigate = useNavigate();
+  const { slug } = Route.useParams();
   const search = Route.useSearch();
+
+  // Automatically format the slug as a fallback title if search.title is missing
+  const fallbackTitle = slug
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 
   const {
     tmdbId,
-    title = "Unknown Title",
+    title = fallbackTitle,
     type = "movie",
     season = 1,
     episode = 1,
@@ -86,17 +93,6 @@ function WatchSlugPage() {
   const [playing, setPlaying] =
     useState(false);
 
-  /**
-   * Resolve the stream through:
-   *
-   * Watch Page
-   *      ↓
-   * fetchAutoStreamUrl()
-   *      ↓
-   * Supabase scrape-source
-   *      ↓
-   * Stream URL
-   */
   const resolveStream = async () => {
     setLoading(true);
     setError(null);
@@ -121,20 +117,9 @@ function WatchSlugPage() {
           episode,
         );
 
-      console.log(
-        "[Watch] Resolver result:",
-        result,
-      );
-
-      if (!result) {
+      if (!result?.url) {
         throw new Error(
-          "No playable stream was returned by the stream resolver.",
-        );
-      }
-
-      if (!result.url) {
-        throw new Error(
-          "The stream resolver returned an empty URL.",
+          "The stream resolver returned an empty or invalid URL.",
         );
       }
 
@@ -155,9 +140,6 @@ function WatchSlugPage() {
     }
   };
 
-  /**
-   * Resolve stream whenever the movie/episode changes.
-   */
   useEffect(() => {
     resolveStream();
 
@@ -175,9 +157,6 @@ function WatchSlugPage() {
     episode,
   ]);
 
-  /**
-   * Configure the actual video player.
-   */
   useEffect(() => {
     const video = videoRef.current;
 
@@ -185,7 +164,6 @@ function WatchSlugPage() {
       return;
     }
 
-    // Clean up previous HLS instance.
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
@@ -195,9 +173,6 @@ function WatchSlugPage() {
     video.removeAttribute("src");
     video.load();
 
-    /**
-     * HLS
-     */
     if (stream.type === "hls") {
       if (Hls.isSupported()) {
         const hls = new Hls({
@@ -210,10 +185,6 @@ function WatchSlugPage() {
         hls.on(
           Hls.Events.MEDIA_ATTACHED,
           () => {
-            console.log(
-              "[Player] HLS media attached",
-            );
-
             hls.loadSource(stream.url);
           },
         );
@@ -221,36 +192,18 @@ function WatchSlugPage() {
         hls.on(
           Hls.Events.MANIFEST_PARSED,
           () => {
-            console.log(
-              "[Player] HLS manifest loaded",
-            );
-
             video
               .play()
-              .then(() => {
-                setPlaying(true);
-              })
-              .catch(() => {
-                // Browser autoplay may be blocked.
-                setPlaying(false);
-              });
+              .then(() => setPlaying(true))
+              .catch(() => setPlaying(false));
           },
         );
 
         hls.on(
           Hls.Events.ERROR,
           (_event, data) => {
-            console.error(
-              "[Player] HLS error:",
-              data,
-            );
-
-            if (
-              data.fatal
-            ) {
-              setError(
-                "The HLS stream could not be played.",
-              );
+            if (data.fatal) {
+              setError("The HLS stream could not be played.");
             }
           },
         );
@@ -261,52 +214,23 @@ function WatchSlugPage() {
           "application/vnd.apple.mpegurl",
         )
       ) {
-        // Safari / native HLS support.
         video.src = stream.url;
-
         video
           .play()
-          .then(() => {
-            setPlaying(true);
-          })
-          .catch(() => {
-            setPlaying(false);
-          });
+          .then(() => setPlaying(true))
+          .catch(() => setPlaying(false));
       } else {
-        setError(
-          "This browser does not support HLS playback.",
-        );
+        setError("This browser does not support HLS playback.");
       }
-    }
-
-    /**
-     * MP4
-     */
-    else if (stream.type === "mp4") {
+    } else if (stream.type === "mp4") {
       video.src = stream.url;
       video.load();
-
       video
         .play()
-        .then(() => {
-          setPlaying(true);
-        })
-        .catch(() => {
-          // Autoplay can be blocked.
-          setPlaying(false);
-        });
-    }
-
-    /**
-     * Torrent
-     *
-     * Browser torrent playback is intentionally
-     * not handled here.
-     */
-    else if (stream.type === "torrent") {
-      setError(
-        "Torrent playback is not supported by this player.",
-      );
+        .then(() => setPlaying(true))
+        .catch(() => setPlaying(false));
+    } else if (stream.type === "torrent") {
+      setError("Torrent playback is not supported by this player.");
     }
 
     return () => {
@@ -350,17 +274,14 @@ function WatchSlugPage() {
 
         {/* Player */}
         <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">
-          {/* Loading */}
           {loading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center">
               <div className="flex flex-col items-center gap-4 px-6 text-center">
                 <Loader2 className="h-10 w-10 animate-spin text-amber-500" />
-
                 <div>
                   <h2 className="text-lg font-semibold">
                     Resolving stream...
                   </h2>
-
                   <p className="mt-1 text-sm text-neutral-400">
                     Finding a playable source for this title.
                   </p>
@@ -369,22 +290,18 @@ function WatchSlugPage() {
             </div>
           )}
 
-          {/* Error */}
           {!loading && error && (
             <div className="absolute inset-0 z-10 flex items-center justify-center">
               <div className="flex max-w-md flex-col items-center gap-4 px-6 text-center">
                 <AlertTriangle className="h-12 w-12 text-red-500" />
-
                 <div>
                   <h2 className="text-lg font-semibold">
                     Stream Unavailable
                   </h2>
-
                   <p className="mt-2 text-sm text-neutral-400">
                     {error}
                   </p>
                 </div>
-
                 <button
                   type="button"
                   onClick={resolveStream}
@@ -397,7 +314,6 @@ function WatchSlugPage() {
             </div>
           )}
 
-          {/* Video */}
           {stream && !error && (
             <>
               <video
@@ -406,18 +322,8 @@ function WatchSlugPage() {
                 playsInline
                 preload="metadata"
                 className="h-full w-full object-contain"
-                onPlay={() =>
-                  setPlaying(true)
-                }
-                onPause={() =>
-                  setPlaying(false)
-                }
-                onError={() => {
-                  console.error(
-                    "[Player] Video element error:",
-                    videoRef.current?.error,
-                  );
-                }}
+                onPlay={() => setPlaying(true)}
+                onPause={() => setPlaying(false)}
               />
 
               {!playing && !loading && (
@@ -426,12 +332,7 @@ function WatchSlugPage() {
                   onClick={() => {
                     videoRef.current
                       ?.play()
-                      .catch((err) => {
-                        console.error(
-                          "[Player] Manual play failed:",
-                          err,
-                        );
-                      });
+                      .catch((err) => console.error("[Player] Manual play failed:", err));
                   }}
                   className="pointer-events-auto absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-black/70 px-5 py-3 text-sm font-semibold backdrop-blur transition hover:bg-black/90"
                 >
