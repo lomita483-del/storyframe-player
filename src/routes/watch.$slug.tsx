@@ -4,186 +4,317 @@ import {
   ArrowLeft,
   Loader2,
   AlertTriangle,
+  RefreshCw,
   PlayCircle,
-  ExternalLink,
-  Download,
-  ShieldCheck,
 } from "lucide-react";
 import Hls from "hls.js";
-import { useQuery } from "@tanstack/react-query";
-import { movieBySlugQuery } from "@/lib/movies";
 
-type DirectStreamResult = {
-  url: string;
-  type: "hls" | "mp4" | "torrent";
-  provider?: string | undefined;
-};
+import {
+  fetchAutoStreamUrl,
+  type DirectStreamResult,
+} from "@/lib/scrapers/streamResolver";
 
 interface WatchSearchParams {
-  tmdbId?: number | undefined;
-  title?: string | undefined;
-  type?: "movie" | "tv" | undefined;
-  season?: number | undefined;
-  episode?: number | undefined;
-}
-
-function toNumber(value: unknown): number | undefined {
-  if (typeof value === "number") return value;
-  if (typeof value === "string" && value) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-  return undefined;
+  tmdbId?: number;
+  title?: string;
+  type?: "movie" | "tv";
+  season?: number;
+  episode?: number;
 }
 
 export const Route = createFileRoute("/watch/$slug")({
   validateSearch: (search: Record<string, unknown>): WatchSearchParams => ({
-    tmdbId: toNumber(search["tmdbId"]),
-    title: typeof search["title"] === "string" ? search["title"] : undefined,
-    type: search["type"] === "tv" ? "tv" : "movie",
-    season: toNumber(search["season"]) ?? 1,
-    episode: toNumber(search["episode"]) ?? 1,
+    tmdbId:
+      typeof search.tmdbId === "number"
+        ? search.tmdbId
+        : typeof search.tmdbId === "string"
+          ? Number(search.tmdbId)
+          : undefined,
+
+    title:
+      typeof search.title === "string"
+        ? search.title
+        : undefined,
+
+    type:
+      search.type === "tv" || search.type === "movie"
+        ? search.type
+        : "movie",
+
+    season:
+      typeof search.season === "number"
+        ? search.season
+        : typeof search.season === "string"
+          ? Number(search.season)
+          : 1,
+
+    episode:
+      typeof search.episode === "number"
+        ? search.episode
+        : typeof search.episode === "string"
+          ? Number(search.episode)
+          : 1,
   }),
+
   component: WatchSlugPage,
 });
 
 function WatchSlugPage() {
-  const { slug } = Route.useParams();
-  const search = Route.useSearch();
   const navigate = useNavigate();
+  const search = Route.useSearch();
 
-  const [stream, setStream] = useState<DirectStreamResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [videoReady, setVideoReady] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const {
+    tmdbId,
+    title = "Unknown Title",
+    type = "movie",
+    season = 1,
+    episode = 1,
+  } = search;
 
-  const title =
-    search.title ||
-    slug
-      .replace(/[-_]+/g, " ")
-      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hlsRef = useRef<Hls | null>(null);
 
-  const type = search.type || "movie";
-  const season = Math.max(1, search.season || 1);
-  const episode = Math.max(1, search.episode || 1);
+  const [stream, setStream] =
+    useState<DirectStreamResult | null>(null);
 
-  const movieQuery = useQuery(movieBySlugQuery(slug));
-  const movie = movieQuery.data ?? null;
-  const whereToWatch = movie?.where_to_watch ?? [];
+  const [loading, setLoading] =
+    useState(true);
 
-  // Scraper integration effect
-  useEffect(() => {
-    let isMounted = true;
+  const [error, setError] =
+    useState<string | null>(null);
 
-    async function resolveScraperStream() {
-      setLoading(true);
-      setError(null);
+  const [playing, setPlaying] =
+    useState(false);
 
-      // 1. Check local DB/configured direct file first
-      const localUrl = movie?.direct_stream_url || movie?.video_url;
-      if (localUrl) {
-        if (!isMounted) return;
-        setStream({
-          url: localUrl,
-          type: localUrl.includes(".m3u8") ? "hls" : "mp4",
-          provider: "Local Catalog",
-        });
-        setLoading(false);
-        return;
-      }
+  /**
+   * Resolve the stream through:
+   *
+   * Watch Page
+   *      ↓
+   * fetchAutoStreamUrl()
+   *      ↓
+   * Supabase scrape-source
+   *      ↓
+   * Stream URL
+   */
+  const resolveStream = async () => {
+    setLoading(true);
+    setError(null);
+    setStream(null);
+    setPlaying(false);
 
-      try {
-        // 2. Call your backend scraper route that searches NetNaija, FzMovies, or 1377x
-        // Example endpoint: /api/scrape?title=...&type=...&season=...&episode=...
-        const scraperRes = await fetch(
-          `/api/scrape?title=${encodeURIComponent(title)}&type=${type}&season=${season}&episode=${episode}`
+    try {
+      console.log("[Watch] Resolving stream:", {
+        tmdbId,
+        title,
+        type,
+        season,
+        episode,
+      });
+
+      const result =
+        await fetchAutoStreamUrl(
+          tmdbId,
+          title,
+          type,
+          season,
+          episode,
         );
-        
-        if (!scraperRes.ok) throw new Error("Scraper service failed to respond.");
-        
-        const data = await scraperRes.json();
 
-        if (!isMounted) return;
+      console.log(
+        "[Watch] Resolver result:",
+        result,
+      );
 
-        if (data?.url) {
-          setStream({
-            url: data.url,
-            type: data.type || (data.url.includes(".m3u8") ? "hls" : "mp4"),
-            provider: data.provider || "Direct Scraper Source",
-          });
-        } else {
-          setError("No direct downloadable stream could be found from your configured scraper sources (NetNaija/FzMovies/Torrents).");
-        }
-      } catch (err) {
-        if (!isMounted) return;
-        console.error("Scraping resolution error:", err);
-        setError("Failed to fetch media links from scrapers. Check your backend scrapers.");
-      } finally {
-        if (isMounted) setLoading(false);
+      if (!result) {
+        throw new Error(
+          "No playable stream was returned by the stream resolver.",
+        );
       }
-    }
 
-    resolveScraperStream();
+      if (!result.url) {
+        throw new Error(
+          "The stream resolver returned an empty URL.",
+        );
+      }
+
+      setStream(result);
+    } catch (err) {
+      console.error(
+        "[Watch] Stream resolution failed:",
+        err,
+      );
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to resolve the video stream.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Resolve stream whenever the movie/episode changes.
+   */
+  useEffect(() => {
+    resolveStream();
 
     return () => {
-      isMounted = false;
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
     };
-  }, [slug, title, type, season, episode, movie]);
+  }, [
+    tmdbId,
+    title,
+    type,
+    season,
+    episode,
+  ]);
 
-  // Video playback configuration (HLS.js / MP4)
+  /**
+   * Configure the actual video player.
+   */
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !stream) return;
 
-    let hls: Hls | null = null;
+    if (!video || !stream) {
+      return;
+    }
 
-    const handleLoadedMetadata = () => setVideoReady(true);
-    const handleCanPlay = () => setVideoReady(true);
-    const handleError = () => {
-      setError("The video stream encountered a playback error or format incompatibility.");
-    };
+    // Clean up previous HLS instance.
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
 
-    video.addEventListener("loadedmetadata", handleLoadedMetadata);
-    video.addEventListener("canplay", handleCanPlay);
-    video.addEventListener("error", handleError);
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
 
+    /**
+     * HLS
+     */
     if (stream.type === "hls") {
       if (Hls.isSupported()) {
-        hls = new Hls({ enableWorker: true });
-        hls.on(Hls.Events.ERROR, (_event, data) => {
-          if (data.fatal) {
-            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls?.startLoad();
-            else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls?.recoverMediaError();
-            else {
-              setError("Fatal HLS playback error.");
-              hls?.destroy();
-              hls = null;
-            }
-          }
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
         });
-        hls.loadSource(stream.url);
+
+        hlsRef.current = hls;
+
+        hls.on(
+          Hls.Events.MEDIA_ATTACHED,
+          () => {
+            console.log(
+              "[Player] HLS media attached",
+            );
+
+            hls.loadSource(stream.url);
+          },
+        );
+
+        hls.on(
+          Hls.Events.MANIFEST_PARSED,
+          () => {
+            console.log(
+              "[Player] HLS manifest loaded",
+            );
+
+            video
+              .play()
+              .then(() => {
+                setPlaying(true);
+              })
+              .catch(() => {
+                // Browser autoplay may be blocked.
+                setPlaying(false);
+              });
+          },
+        );
+
+        hls.on(
+          Hls.Events.ERROR,
+          (_event, data) => {
+            console.error(
+              "[Player] HLS error:",
+              data,
+            );
+
+            if (
+              data.fatal
+            ) {
+              setError(
+                "The HLS stream could not be played.",
+              );
+            }
+          },
+        );
+
         hls.attachMedia(video);
-      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      } else if (
+        video.canPlayType(
+          "application/vnd.apple.mpegurl",
+        )
+      ) {
+        // Safari / native HLS support.
         video.src = stream.url;
+
+        video
+          .play()
+          .then(() => {
+            setPlaying(true);
+          })
+          .catch(() => {
+            setPlaying(false);
+          });
       } else {
-        setError("Browser does not support HLS playback.");
+        setError(
+          "This browser does not support HLS playback.",
+        );
       }
-    } else if (stream.type === "mp4") {
+    }
+
+    /**
+     * MP4
+     */
+    else if (stream.type === "mp4") {
       video.src = stream.url;
       video.load();
-    } else if (stream.type === "torrent") {
-      setError("Torrent direct stream requires a WebTorrent client extension.");
+
+      video
+        .play()
+        .then(() => {
+          setPlaying(true);
+        })
+        .catch(() => {
+          // Autoplay can be blocked.
+          setPlaying(false);
+        });
+    }
+
+    /**
+     * Torrent
+     *
+     * Browser torrent playback is intentionally
+     * not handled here.
+     */
+    else if (stream.type === "torrent") {
+      setError(
+        "Torrent playback is not supported by this player.",
+      );
     }
 
     return () => {
-      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      video.removeEventListener("canplay", handleCanPlay);
-      video.removeEventListener("error", handleError);
-      if (hls) {
-        hls.destroy();
-        hls = null;
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
       }
+
       video.pause();
       video.removeAttribute("src");
       video.load();
@@ -191,139 +322,153 @@ function WatchSlugPage() {
   }, [stream]);
 
   const handleBack = () => {
-    if (window.history.length > 1) {
-      navigate({ to: `/movie/${slug}` });
-    } else {
-      navigate({ to: "/" });
-    }
+    navigate({
+      to: "/",
+    });
   };
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col p-4">
+      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex items-center justify-between gap-4">
           <button
             type="button"
             onClick={handleBack}
-            className="flex items-center gap-2 rounded-md bg-neutral-800 px-3 py-2 text-sm transition hover:bg-neutral-700"
+            className="flex items-center gap-2 rounded-lg bg-neutral-800 px-4 py-2 text-sm font-medium transition hover:bg-neutral-700"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>Back</span>
+            Back
           </button>
 
           {stream?.provider && (
-            <span className="flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-400 font-medium">
-              <ShieldCheck className="h-3.5 w-3.5" /> Scraper Source: {stream.provider}
-            </span>
+            <div className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-400">
+              Source: {stream.provider}
+            </div>
           )}
         </div>
 
-        {/* Player Container */}
-        <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950 shadow-2xl">
+        {/* Player */}
+        <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">
+          {/* Loading */}
           {loading && (
-            <div className="flex flex-col items-center gap-3 px-6 text-center">
-              <Loader2 className="h-10 w-10 animate-spin text-amber-500" />
-              <h2 className="text-lg font-semibold">Scraping media links...</h2>
-              <p className="max-w-md text-xs text-neutral-400">
-                Searching download indexes for <span className="text-neutral-200">{title}</span>
-              </p>
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-4 px-6 text-center">
+                <Loader2 className="h-10 w-10 animate-spin text-amber-500" />
+
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    Resolving stream...
+                  </h2>
+
+                  <p className="mt-1 text-sm text-neutral-400">
+                    Finding a playable source for this title.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
+          {/* Error */}
           {!loading && error && (
-            <div className="flex max-w-md flex-col items-center gap-4 px-6 text-center">
-              <div className="rounded-full bg-red-500/10 p-4">
-                <AlertTriangle className="h-10 w-10 text-red-500" />
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
+              <div className="flex max-w-md flex-col items-center gap-4 px-6 text-center">
+                <AlertTriangle className="h-12 w-12 text-red-500" />
+
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    Stream Unavailable
+                  </h2>
+
+                  <p className="mt-2 text-sm text-neutral-400">
+                    {error}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={resolveStream}
+                  className="flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Try Again
+                </button>
               </div>
-              <div>
-                <h2 className="text-lg font-semibold">Stream Extraction Failed</h2>
-                <p className="mt-2 text-sm text-neutral-400">{error}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className="rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400"
-              >
-                Retry Scrapers
-              </button>
             </div>
           )}
 
-          {!loading && !error && stream && (
+          {/* Video */}
+          {stream && !error && (
             <>
               <video
                 ref={videoRef}
                 controls
-                autoPlay
                 playsInline
                 preload="metadata"
                 className="h-full w-full object-contain"
+                onPlay={() =>
+                  setPlaying(true)
+                }
+                onPause={() =>
+                  setPlaying(false)
+                }
+                onError={() => {
+                  console.error(
+                    "[Player] Video element error:",
+                    videoRef.current?.error,
+                  );
+                }}
               />
-              {!videoReady && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30">
-                  <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-                </div>
+
+              {!playing && !loading && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    videoRef.current
+                      ?.play()
+                      .catch((err) => {
+                        console.error(
+                          "[Player] Manual play failed:",
+                          err,
+                        );
+                      });
+                  }}
+                  className="pointer-events-auto absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-black/70 px-5 py-3 text-sm font-semibold backdrop-blur transition hover:bg-black/90"
+                >
+                  <PlayCircle className="h-6 w-6" />
+                  Play
+                </button>
               )}
             </>
           )}
+        </div>
 
-          {!loading && !error && !stream && (
-            <div className="flex max-w-md flex-col items-center gap-3 px-6 text-center">
-              <PlayCircle className="h-12 w-12 text-neutral-600" />
-              <p className="text-sm text-neutral-400">
-                No direct stream could be resolved from external indexers.
-              </p>
+        {/* Movie information */}
+        <div className="mt-6">
+          <h1 className="text-2xl font-bold sm:text-3xl">
+            {title}
+          </h1>
+
+          {type === "tv" && (
+            <p className="mt-2 text-sm text-neutral-400">
+              Season {season} — Episode {episode}
+            </p>
+          )}
+
+          {stream && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-md bg-neutral-900 px-3 py-1 text-xs text-neutral-400">
+                {stream.type.toUpperCase()}
+              </span>
+
+              {stream.provider && (
+                <span className="rounded-md bg-neutral-900 px-3 py-1 text-xs text-neutral-400">
+                  {stream.provider}
+                </span>
+              )}
             </div>
           )}
         </div>
-
-        {/* Details & Direct Download Option */}
-        <div className="mt-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">{title}</h1>
-            {type === "tv" && (
-              <p className="mt-1 text-sm text-neutral-400">
-                Season {season} — Episode {episode}
-              </p>
-            )}
-          </div>
-
-          {stream?.url && (
-            <a
-              href={stream.url}
-              download
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 border border-neutral-800 px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-neutral-800"
-            >
-              <Download className="h-4 w-4 text-amber-500" /> Download Raw File (.mp4)
-            </a>
-          )}
-        </div>
-
-        {whereToWatch.length > 0 && (
-          <div className="mt-6 border-t border-neutral-800 pt-6">
-            <h2 className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-              Where to watch officially
-            </h2>
-            <ul className="mt-3 flex flex-wrap gap-2">
-              {whereToWatch.map((link) => (
-                <li key={`${link.name}-${link.url}`}>
-                  <a
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-neutral-800"
-                  >
-                    {link.name}
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   );
