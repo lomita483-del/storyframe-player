@@ -1,74 +1,54 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type DirectStreamResult = {
+export interface DirectStreamResult {
   url: string;
-  type: "hls" | "mp4" | "torrent";
+  type: "mp4" | "hls" | "torrent";
   provider?: string;
-};
-
-type ResolverResponse = {
-  url?: unknown;
-  type?: unknown;
-  provider?: unknown;
-  error?: unknown;
-  message?: unknown;
-};
-
-function isValidType(value: unknown): value is DirectStreamResult["type"] {
-  return value === "hls" || value === "mp4" || value === "torrent";
 }
 
-function isValidUrl(value: unknown): value is string {
-  if (typeof value !== "string" || !value.trim()) {
-    return false;
-  }
-
-  try {
-    const parsed = new URL(value);
-
-    return (
-      parsed.protocol === "http:" ||
-      parsed.protocol === "https:" ||
-      parsed.protocol === "magnet:"
-    );
-  } catch {
-    return false;
-  }
-}
-
+/**
+ * Calls the deployed Supabase Edge Function:
+ * scrape-source
+ */
 export async function fetchAutoStreamUrl(
   tmdbId?: number,
   title?: string,
   type: "movie" | "tv" = "movie",
-  season = 1,
-  episode = 1,
+  season: number = 1,
+  episode: number = 1,
 ): Promise<DirectStreamResult | null> {
   if (!tmdbId && !title?.trim()) {
-    console.warn("[streamResolver] No TMDB ID or title supplied.");
+    console.warn(
+      "[streamResolver] Missing TMDB ID and title",
+    );
     return null;
   }
 
   try {
-    console.log("[streamResolver] Resolving stream:", {
-      tmdbId,
-      title,
-      type,
-      season,
-      episode,
-    });
-
-    const { data, error } = await supabase.functions.invoke(
-      "scrape-source",
+    console.log(
+      "[streamResolver] Calling scrape-source:",
       {
-        body: {
-          tmdbId,
-          title: title?.trim(),
-          type,
-          season,
-          episode,
-        },
+        tmdbId,
+        title,
+        type,
+        season,
+        episode,
       },
     );
+
+    const { data, error } =
+      await supabase.functions.invoke(
+        "scrape-source",
+        {
+          body: {
+            tmdbId,
+            title: title?.trim(),
+            type,
+            season,
+            episode,
+          },
+        },
+      );
 
     if (error) {
       console.error(
@@ -76,59 +56,44 @@ export async function fetchAutoStreamUrl(
         error,
       );
 
-      return null;
-    }
-
-    const result = data as ResolverResponse | null;
-
-    if (!result) {
-      console.error(
-        "[streamResolver] Empty response from scrape-source.",
+      throw new Error(
+        error.message ||
+          "Failed to invoke scrape-source",
       );
-
-      return null;
     }
 
-    if (result.error || result.message) {
+    console.log(
+      "[streamResolver] Edge Function response:",
+      data,
+    );
+
+    if (!data?.url) {
       console.warn(
-        "[streamResolver] Resolver returned an error:",
-        result.error || result.message,
+        "[streamResolver] No stream URL returned:",
+        data,
       );
 
       return null;
     }
 
-    if (!isValidUrl(result.url)) {
-      console.error(
-        "[streamResolver] Invalid stream URL:",
-        result.url,
-      );
-
-      return null;
-    }
-
-    if (!isValidType(result.type)) {
-      console.error(
-        "[streamResolver] Invalid stream type:",
-        result.type,
-      );
-
-      return null;
-    }
+    const streamType =
+      data.type === "hls" ||
+      data.type === "torrent"
+        ? data.type
+        : "mp4";
 
     return {
-      url: result.url,
-      type: result.type,
+      url: data.url,
+      type: streamType,
       provider:
-        typeof result.provider === "string" &&
-        result.provider.trim()
-          ? result.provider
-          : "Stream Provider",
+        typeof data.provider === "string"
+          ? data.provider
+          : "Stellar Stream Core",
     };
-  } catch (error) {
+  } catch (err) {
     console.error(
-      "[streamResolver] Unexpected error:",
-      error,
+      "[streamResolver] Critical stream resolver error:",
+      err,
     );
 
     return null;
