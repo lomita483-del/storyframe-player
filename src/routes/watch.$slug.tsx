@@ -5,7 +5,6 @@ import {
   Loader2,
   AlertTriangle,
   RefreshCw,
-  Play,
 } from "lucide-react";
 import Hls from "hls.js";
 
@@ -27,7 +26,7 @@ export const Route = createFileRoute("/watch/$slug")({
     tmdbId:
       typeof search.tmdbId === "number"
         ? search.tmdbId
-        : typeof search.tmdbId === "string"
+        : typeof search.tmdbId === "string" && search.tmdbId.trim()
           ? Number(search.tmdbId)
           : undefined,
 
@@ -61,15 +60,28 @@ export const Route = createFileRoute("/watch/$slug")({
 
 function WatchSlugPage() {
   const navigate = useNavigate();
+  const params = Route.useParams();
   const search = Route.useSearch();
 
-  const {
-    tmdbId,
-    title = "Unknown Title",
-    type = "movie",
-    season = 1,
-    episode = 1,
-  } = search;
+  /*
+   * Use the title passed from the previous page.
+   * If title is missing, use the URL slug as a fallback.
+   */
+  const displayTitle =
+    search.title?.trim() ||
+    decodeURIComponent(params.slug || "")
+      .replace(/-/g, " ")
+      .replace(/\s+/g, " ")
+      .trim() ||
+    "Unknown Title";
+
+  const tmdbId = search.tmdbId;
+
+  const type = search.type || "movie";
+
+  const season = search.season || 1;
+
+  const episode = search.episode || 1;
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -77,10 +89,18 @@ function WatchSlugPage() {
   const [stream, setStream] =
     useState<DirectStreamResult | null>(null);
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [videoError, setVideoError] = useState<string | null>(null);
+  const [loading, setLoading] =
+    useState(true);
 
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [videoError, setVideoError] =
+    useState<string | null>(null);
+
+  /*
+   * Resolve the stream.
+   */
   const resolveStream = async () => {
     setLoading(true);
     setError(null);
@@ -88,45 +108,55 @@ function WatchSlugPage() {
     setStream(null);
 
     try {
-      console.log("[Watch] Requesting stream", {
+      console.log("[Watch] Resolving stream:", {
         tmdbId,
-        title,
+        title: displayTitle,
         type,
         season,
         episode,
       });
 
-      const result = await fetchAutoStreamUrl(
-        tmdbId,
-        title,
-        type,
-        season,
-        episode,
-      );
+      const result =
+        await fetchAutoStreamUrl(
+          tmdbId,
+          displayTitle,
+          type,
+          season,
+          episode,
+        );
 
-      console.log("[Watch] Stream result:", result);
+      console.log(
+        "[Watch] Stream resolver result:",
+        result,
+      );
 
       if (!result?.url) {
         setError(
-          "The stream resolver did not return a playable video URL.",
+          "No playable stream was returned by the stream provider.",
         );
         return;
       }
 
       setStream(result);
     } catch (err) {
-      console.error("[Watch] Resolver error:", err);
+      console.error(
+        "[Watch] Stream resolver failed:",
+        err,
+      );
 
       setError(
         err instanceof Error
           ? err.message
-          : "Unable to resolve the stream.",
+          : "Failed to fetch media from the stream provider.",
       );
     } finally {
       setLoading(false);
     }
   };
 
+  /*
+   * Resolve whenever the movie/episode changes.
+   */
   useEffect(() => {
     resolveStream();
 
@@ -136,66 +166,126 @@ function WatchSlugPage() {
         hlsRef.current = null;
       }
     };
-  }, [tmdbId, title, type, season, episode]);
+  }, [
+    tmdbId,
+    displayTitle,
+    type,
+    season,
+    episode,
+  ]);
 
   /*
-   * HLS is the only format that needs JavaScript
-   * attachment. MP4 is supplied directly to <video src>.
+   * HLS setup.
+   *
+   * MP4 does NOT need HLS.js.
+   * MP4 is supplied directly through the video src.
    */
   useEffect(() => {
     const video = videoRef.current;
 
-    if (!video || !stream) return;
+    if (!video || !stream) {
+      return;
+    }
 
     setVideoError(null);
 
+    /*
+     * Destroy previous HLS instance.
+     */
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
 
-    if (stream.type !== "hls") {
+    /*
+     * MP4:
+     *
+     * The <video> element already receives
+     * stream.url through its src property.
+     */
+    if (stream.type === "mp4") {
+      console.log(
+        "[Player] Loading MP4:",
+        stream.url,
+      );
+
       return;
     }
 
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-      });
+    /*
+     * HLS:
+     */
+    if (stream.type === "hls") {
+      console.log(
+        "[Player] Loading HLS:",
+        stream.url,
+      );
 
-      hlsRef.current = hls;
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          enableWorker: true,
+        });
 
-      hls.attachMedia(video);
+        hlsRef.current = hls;
 
-      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-        console.log("[Player] HLS attached");
+        hls.attachMedia(video);
 
-        hls.loadSource(stream.url);
-      });
+        hls.on(
+          Hls.Events.MEDIA_ATTACHED,
+          () => {
+            console.log(
+              "[Player] HLS media attached",
+            );
 
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        console.log("[Player] HLS manifest loaded");
-      });
+            hls.loadSource(stream.url);
+          },
+        );
 
-      hls.on(Hls.Events.ERROR, (_event, data) => {
-        console.error("[Player] HLS error:", data);
+        hls.on(
+          Hls.Events.MANIFEST_PARSED,
+          () => {
+            console.log(
+              "[Player] HLS manifest parsed",
+            );
+          },
+        );
 
-        if (data.fatal) {
-          setVideoError(
-            "The HLS video could not be loaded.",
-          );
-        }
-      });
-    } else if (
-      video.canPlayType(
-        "application/vnd.apple.mpegurl",
-      )
-    ) {
-      video.src = stream.url;
-      video.load();
-    } else {
+        hls.on(
+          Hls.Events.ERROR,
+          (_event, data) => {
+            console.error(
+              "[Player] HLS error:",
+              data,
+            );
+
+            if (data.fatal) {
+              setVideoError(
+                "The HLS stream could not be loaded.",
+              );
+            }
+          },
+        );
+      } else if (
+        video.canPlayType(
+          "application/vnd.apple.mpegurl",
+        )
+      ) {
+        video.src = stream.url;
+        video.load();
+      } else {
+        setVideoError(
+          "This browser does not support HLS playback.",
+        );
+      }
+    }
+
+    /*
+     * Torrent playback is deliberately not
+     * initialized here.
+     */
+    if (stream.type === "torrent") {
       setVideoError(
-        "This browser does not support HLS playback.",
+        "Torrent playback is not supported by this player.",
       );
     }
 
@@ -207,6 +297,9 @@ function WatchSlugPage() {
     };
   }, [stream]);
 
+  /*
+   * Native HTML5 video error handler.
+   */
   const handleVideoError = () => {
     const video = videoRef.current;
 
@@ -216,18 +309,22 @@ function WatchSlugPage() {
     );
 
     if (!video?.error) {
-      setVideoError("The video could not be played.");
+      setVideoError(
+        "The video could not be played.",
+      );
       return;
     }
 
     switch (video.error.code) {
       case MediaError.MEDIA_ERR_ABORTED:
-        setVideoError("Video loading was aborted.");
+        setVideoError(
+          "Video loading was aborted.",
+        );
         break;
 
       case MediaError.MEDIA_ERR_NETWORK:
         setVideoError(
-          "Network error while loading the video.",
+          "A network error occurred while loading the video.",
         );
         break;
 
@@ -244,22 +341,56 @@ function WatchSlugPage() {
         break;
 
       default:
-        setVideoError("The video could not be played.");
+        setVideoError(
+          "The video could not be played.",
+        );
     }
   };
 
-  const handleBack = () => {
-    navigate({
-      to: "/",
+  /*
+   * Retry the current video.
+   */
+  const retryPlayback = () => {
+    setVideoError(null);
+
+    const video = videoRef.current;
+
+    if (!video) {
+      return;
+    }
+
+    video.load();
+
+    video.play().catch((err) => {
+      /*
+       * Autoplay restrictions are normal on mobile.
+       * The user can press Play manually.
+       */
+      console.log(
+        "[Player] Manual playback required:",
+        err,
+      );
     });
   };
 
   /*
-   * IMPORTANT:
-   *
-   * For MP4 we put the URL directly on the video element.
-   * This is more reliable than assigning video.src inside
-   * an effect.
+   * Back button.
+   */
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate({
+        to: "..",
+      });
+    } else {
+      navigate({
+        to: "/",
+      });
+    }
+  };
+
+  /*
+   * For MP4, directly provide the URL
+   * to the native video element.
    */
   const videoSrc =
     stream?.type === "mp4"
@@ -269,11 +400,13 @@ function WatchSlugPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="mx-auto min-h-screen max-w-7xl px-4 py-4">
+
         {/* Header */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between gap-3">
+
           <button
             onClick={handleBack}
-            className="flex items-center gap-2 rounded-lg bg-neutral-800 px-4 py-2 text-sm hover:bg-neutral-700"
+            className="flex items-center gap-2 rounded-lg bg-neutral-800 px-4 py-2 text-sm transition hover:bg-neutral-700"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -286,31 +419,37 @@ function WatchSlugPage() {
           )}
         </div>
 
-        {/* Player */}
+        {/* Video Player */}
         <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-neutral-800 bg-neutral-950">
+
+          {/* Loading */}
           {loading && (
             <div className="absolute inset-0 z-20 flex items-center justify-center">
-              <div className="text-center">
-                <Loader2 className="mx-auto mb-3 h-10 w-10 animate-spin text-amber-500" />
+              <div className="px-6 text-center">
 
-                <h2 className="font-semibold">
-                  Resolving stream...
+                <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-amber-500" />
+
+                <h2 className="text-lg font-semibold">
+                  Preparing stream...
                 </h2>
 
-                <p className="mt-1 text-sm text-neutral-400">
-                  Preparing your video.
+                <p className="mt-2 text-sm text-neutral-400">
+                  Finding a playable source.
                 </p>
+
               </div>
             </div>
           )}
 
+          {/* Resolver Error */}
           {!loading && error && (
             <div className="absolute inset-0 z-20 flex items-center justify-center">
               <div className="max-w-md px-6 text-center">
+
                 <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-red-500" />
 
                 <h2 className="text-lg font-semibold">
-                  Stream Unavailable
+                  Stream Extraction Failed
                 </h2>
 
                 <p className="mt-2 text-sm text-neutral-400">
@@ -319,90 +458,100 @@ function WatchSlugPage() {
 
                 <button
                   onClick={resolveStream}
-                  className="mt-5 flex mx-auto items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400"
+                  className="mx-auto mt-5 flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400"
                 >
                   <RefreshCw className="h-4 w-4" />
-                  Try Again
+                  Retry Scrapers
                 </button>
+
               </div>
             </div>
           )}
 
-          {!loading && stream && !error && (
-            <>
-              <video
-                ref={videoRef}
-                src={videoSrc}
-                controls
-                playsInline
-                preload="auto"
-                className="h-full w-full object-contain"
-                onLoadStart={() =>
-                  console.log("[Player] loadstart")
-                }
-                onLoadedMetadata={() =>
-                  console.log(
-                    "[Player] metadata loaded",
-                  )
-                }
-                onLoadedData={() =>
-                  console.log("[Player] data loaded")
-                }
-                onCanPlay={() =>
-                  console.log("[Player] canplay")
-                }
-                onPlaying={() =>
-                  console.log("[Player] playing")
-                }
-                onWaiting={() =>
-                  console.log("[Player] waiting")
-                }
-                onStalled={() =>
-                  console.log("[Player] stalled")
-                }
-                onError={handleVideoError}
-              />
+          {/* Video */}
+          {!loading &&
+            stream &&
+            !error && (
+              <>
+                <video
+                  ref={videoRef}
+                  src={videoSrc}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-contain"
+                  onLoadStart={() =>
+                    console.log(
+                      "[Player] loadstart",
+                    )
+                  }
+                  onLoadedMetadata={() =>
+                    console.log(
+                      "[Player] loadedmetadata",
+                    )
+                  }
+                  onLoadedData={() =>
+                    console.log(
+                      "[Player] loadeddata",
+                    )
+                  }
+                  onCanPlay={() =>
+                    console.log(
+                      "[Player] canplay",
+                    )
+                  }
+                  onPlaying={() =>
+                    console.log(
+                      "[Player] playing",
+                    )
+                  }
+                  onWaiting={() =>
+                    console.log(
+                      "[Player] waiting",
+                    )
+                  }
+                  onStalled={() =>
+                    console.log(
+                      "[Player] stalled",
+                    )
+                  }
+                  onError={handleVideoError}
+                />
 
-              {videoError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/70">
-                  <div className="max-w-md px-6 text-center">
-                    <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-red-500" />
+                {/* Video Error Overlay */}
+                {videoError && (
+                  <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80">
+                    <div className="max-w-md px-6 text-center">
 
-                    <h3 className="font-semibold">
-                      Video Playback Error
-                    </h3>
+                      <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-red-500" />
 
-                    <p className="mt-2 text-sm text-neutral-400">
-                      {videoError}
-                    </p>
+                      <h3 className="text-lg font-semibold">
+                        Video Playback Error
+                      </h3>
 
-                    <button
-                      onClick={() => {
-                        setVideoError(null);
+                      <p className="mt-2 text-sm text-neutral-400">
+                        {videoError}
+                      </p>
 
-                        const video =
-                          videoRef.current;
+                      <button
+                        onClick={retryPlayback}
+                        className="mt-5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400"
+                      >
+                        Retry Playback
+                      </button>
 
-                        if (video) {
-                          video.load();
-                          video.play().catch(() => {});
-                        }
-                      }}
-                      className="mt-4 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black"
-                    >
-                      Retry Playback
-                    </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
         </div>
 
-        {/* Metadata */}
+        {/* Movie Information */}
         <div className="mt-5">
+
           <h1 className="text-2xl font-bold">
-            {title}
+            {displayTitle}
           </h1>
 
           {type === "tv" && (
@@ -412,7 +561,8 @@ function WatchSlugPage() {
           )}
 
           {stream && (
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
+
               <span className="rounded-md bg-neutral-900 px-3 py-1 text-xs text-neutral-400">
                 {stream.type.toUpperCase()}
               </span>
@@ -422,8 +572,10 @@ function WatchSlugPage() {
                   {stream.provider}
                 </span>
               )}
+
             </div>
           )}
+
         </div>
       </div>
     </div>
