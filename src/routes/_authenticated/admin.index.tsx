@@ -91,7 +91,10 @@ function AdminMovies() {
 
   const flags = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<Movie> }) => {
-      const { error } = await supabase.from("movies").update(patch).eq("id", id);
+      const { error } = await supabase
+        .from("movies")
+        .update(patch as never)
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {

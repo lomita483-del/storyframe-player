@@ -19,7 +19,7 @@ function AdminLayout() {
     mutationFn: async () => {
       const { data, error } = await supabase.rpc("claim_first_admin");
       if (error) throw error;
-      return data as boolean;
+      return data as unknown as boolean;
     },
     onSuccess: (granted) => {
       if (granted) {
