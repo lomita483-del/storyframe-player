@@ -14,11 +14,11 @@ import {
 } from "@/lib/scrapers/streamResolver";
 
 interface WatchSearchParams {
-  tmdbId: number | undefined;
-  title: string | undefined;
-  type: "movie" | "tv";
-  season: number;
-  episode: number;
+  tmdbId?: number | undefined;
+  title?: string | undefined;
+  type?: "movie" | "tv" | undefined;
+  season?: number | undefined;
+  episode?: number | undefined;
 }
 
 const toNumber = (value: unknown): number | undefined => {
