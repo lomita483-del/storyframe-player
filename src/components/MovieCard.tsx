@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Play, Star } from "lucide-react";
 import type { Movie } from "@/lib/movies";
 import { cn } from "@/lib/utils";
+import { RatingStars } from "@/components/RatingStars";
 
 type Props = {
   movie: Movie;
@@ -10,6 +11,9 @@ type Props = {
 };
 
 export function MovieCard({ movie, className, progressPercent }: Props) {
+  const displayAvg = movie.average_rating ?? movie.rating ?? null;
+  const displayCount = movie.rating_count ?? 0;
+
   return (
     <Link
       to="/movie/$slug"
@@ -37,13 +41,13 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent opacity-80" />
 
         <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 p-3">
-          <span className="text-[11px] font-medium text-muted-foreground">
-            {movie.release_year ?? "—"}
-          </span>
-          {movie.rating != null && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-2 py-0.5 text-[11px] font-semibold text-primary backdrop-blur">
+          <span className="text-[11px] font-medium text-muted-foreground">{movie.release_year ?? "—"}</span>
+
+          {displayAvg != null && (
+            <span className="inline-flex items-center gap-2 rounded-full bg-background/70 px-2 py-0.5 text-[11px] font-semibold text-primary backdrop-blur">
               <Star className="size-3 fill-current" />
-              {movie.rating}
+              <span>{displayAvg.toFixed(1)}</span>
+              <span className="text-[10px] text-muted-foreground">({displayCount})</span>
             </span>
           )}
         </div>
@@ -56,10 +60,7 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
 
         {progressPercent != null && progressPercent > 0 && (
           <div className="absolute inset-x-3 bottom-2 h-1 overflow-hidden rounded-full bg-foreground/20">
-            <div
-              className="h-full rounded-full bg-primary"
-              style={{ width: `${Math.min(100, progressPercent)}%` }}
-            />
+            <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, progressPercent)}%` }} />
           </div>
         )}
       </div>
@@ -67,6 +68,10 @@ export function MovieCard({ movie, className, progressPercent }: Props) {
       <div className="px-1 pb-1 pt-2.5">
         <h3 className="truncate text-sm font-semibold">{movie.title}</h3>
         <p className="truncate text-xs text-muted-foreground">{movie.genre ?? "Movie"}</p>
+        <div className="mt-1">
+          {/* Small interactive rating control on cards */}
+          <RatingStars movieId={movie.id} average={movie.average_rating ?? movie.rating} count={movie.rating_count ?? 0} />
+        </div>
       </div>
     </Link>
   );
