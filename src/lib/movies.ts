@@ -2,8 +2,8 @@ import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { hydrateMediaRefs, parseWhereToWatch, type WhereToWatchLink } from "@/lib/media";
 
-// Add your TMDB API key here (or read from import.meta.env.VITE_TMDB_API_KEY)
-const TMDB_API_KEY = "YOUR_TMDB_API_KEY"; 
+// Read TMDB key from env; fall back to placeholder so local dev doesn't crash
+const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY || "YOUR_TMDB_API_KEY";
 
 export type Movie = {
   id: string;
@@ -24,8 +24,11 @@ export type Movie = {
   where_to_watch: WhereToWatchLink[];
   genre: string | null;
   release_year: number | null;
+  release_date?: string | null;
   runtime: number | null;
-  rating: number | null;
+  rating: number | null; // legacy TMDB vote_average
+  average_rating?: number | null; // aggregated from user ratings
+  rating_count?: number | null;
   quality: string | null;
   cast: string[];
   director: string | null;
@@ -50,7 +53,7 @@ export type WatchHistoryRow = {
 };
 
 const MOVIE_FIELDS =
-  'id,title,slug,description,poster_url,backdrop_url,video_url,direct_stream_url,video_type,subtitle_url,trailer_url,embed_url,embed_provider,provider,provider_asset_id,where_to_watch,genre,release_year,runtime,rating,quality,"cast",director,is_published,is_featured,is_trending,media_type,tmdb_id,popularity,first_air_date,created_at,updated_at';
+  'id,title,slug,description,poster_url,backdrop_url,video_url,direct_stream_url,video_type,subtitle_url,trailer_url,embed_url,embed_provider,provider,provider_asset_id,where_to_watch,genre,release_year,runtime,rating,quality,cast,director,is_published,is_featured,is_trending,media_type,tmdb_id,popularity,first_air_date,created_at,updated_at,average_rating,rating_count,release_date';
 
 async function hydrate(rows: unknown): Promise<Movie[]> {
   const list = ((rows ?? []) as Movie[]).map((row) => ({
@@ -92,55 +95,106 @@ export function slugify(value: string) {
 
 /* ---------------- public catalogue ---------------- */
 
+/**
+ * Fetch multiple TMDB endpoints/pages and fall back to Supabase when needed.
+ * This expands the catalogue beyond the single "trending/day" call.
+ */
 export const publishedMoviesQuery = () =>
   queryOptions({
     queryKey: ["movies", "published"],
     queryFn: async (): Promise<Movie[]> => {
+      // If no TMDB key is configured, fall back to Supabase DB
+      if (!TMDB_API_KEY || TMDB_API_KEY === "YOUR_TMDB_API_KEY") {
+        const { data, error } = await supabase
+          .from("movies")
+          .select(MOVIE_FIELDS)
+          .eq("is_published", true)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return hydrate(data);
+      }
+
       try {
-        // Fetch trending movies across ALL genres from TMDB
-        const res = await fetch(
-          `https://api.themoviedb.org/3/trending/movie/day?api_key=${TMDB_API_KEY}`
-        );
-        if (!res.ok) throw new Error("TMDB fetch failed");
-        
-        const data = await res.json();
-        
-        return data.results.map((item: any) => ({
-          id: String(item.id),
-          tmdb_id: item.id,
-          title: item.title || item.original_title,
-          slug: slugify(item.title || item.original_title),
-          description: item.overview || null,
-          poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-          backdrop_url: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
-          video_url: null,
-          direct_stream_url: null,
-          video_type: "hls",
-          subtitle_url: null,
-          trailer_url: null,
-          embed_url: `https://vidsrc.xyz/embed/movie?tmdb=${item.id}`,
-          embed_provider: "vidsrc",
-          provider: null,
-          provider_asset_id: null,
-          where_to_watch: [],
-          genre: "Trending",
-          release_year: item.release_date ? Number(item.release_date.split("-")[0]) : null,
-          runtime: null,
-          rating: item.vote_average ? Number(item.vote_average.toFixed(1)) : null,
-          quality: "HD",
-          cast: [],
-          director: null,
-          is_published: true,
-          is_featured: false,
-          is_trending: true,
-          media_type: "movie",
-          popularity: item.popularity || null,
-          first_air_date: item.release_date || null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }));
+        const endpoints = [
+          { url: (page: number) => `https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&page=${page}`, media_type: "movie" },
+          { url: (page: number) => `https://api.themoviedb.org/3/movie/top_rated?api_key=${TMDB_API_KEY}&page=${page}`, media_type: "movie" },
+          { url: (page: number) => `https://api.themoviedb.org/3/movie/upcoming?api_key=${TMDB_API_KEY}&page=${page}`, media_type: "movie" },
+          { url: (page: number) => `https://api.themoviedb.org/3/trending/all/day?api_key=${TMDB_API_KEY}&page=${page}`, media_type: "mixed" },
+          { url: (page: number) => `https://api.themoviedb.org/3/tv/popular?api_key=${TMDB_API_KEY}&page=${page}`, media_type: "tv" },
+          { url: (page: number) => `https://api.themoviedb.org/3/tv/top_rated?api_key=${TMDB_API_KEY}&page=${page}`, media_type: "tv" },
+        ];
+
+        const maxPages = 2; // conservative default; increase if desired
+        const results: any[] = [];
+
+        for (const ep of endpoints) {
+          for (let page = 1; page <= maxPages; page++) {
+            const res = await fetch(ep.url(page));
+            if (!res.ok) break; // stop paging this endpoint on error
+            const data = await res.json();
+            if (!data || !data.results || !data.results.length) break;
+            results.push(...data.results.map((item: any) => ({ item, media_type_hint: ep.media_type })));
+            if (page >= (data.total_pages ?? page)) break;
+          }
+        }
+
+        // Map and dedupe by tmdb id + media_type
+        const map = new Map<string, any>();
+        for (const entry of results) {
+          const item = entry.item;
+          const mediaHint = entry.media_type_hint;
+          const mediaType = (item.media_type || (mediaHint === 'tv' ? 'tv' : item.title ? 'movie' : 'tv'));
+          const key = `${mediaType}:${item.id}`;
+          if (!map.has(key)) map.set(key, { item, mediaType });
+        }
+
+        const list = Array.from(map.values()).map(({ item, mediaType }) => {
+          const isTV = mediaType === 'tv' || item.media_type === 'tv';
+          const title = isTV ? (item.name || item.original_name) : (item.title || item.original_title);
+          const releaseDate = item.release_date || item.first_air_date || null;
+          return {
+            id: String(item.id) + (isTV ? ':tv' : ':movie'),
+            tmdb_id: item.id,
+            title: title,
+            slug: slugify(title + (releaseDate ? `-${releaseDate}` : '')),
+            description: item.overview || null,
+            poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+            backdrop_url: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : null,
+            video_url: null,
+            direct_stream_url: null,
+            video_type: "hls",
+            subtitle_url: null,
+            trailer_url: null,
+            embed_url: `https://vidsrc.xyz/embed/${isTV ? 'tv' : 'movie'}?tmdb=${item.id}`,
+            embed_provider: "vidsrc",
+            provider: null,
+            provider_asset_id: null,
+            where_to_watch: [],
+            genre: (item.genre_ids && item.genre_ids.length) ? String(item.genre_ids[0]) : null,
+            release_year: releaseDate ? Number((releaseDate as string).split('-')[0]) : null,
+            release_date: releaseDate,
+            runtime: item.runtime ?? null,
+            rating: item.vote_average ? Number(item.vote_average.toFixed(1)) : null,
+            average_rating: item.vote_average ? Number(item.vote_average.toFixed(1)) : 0,
+            rating_count: item.vote_count ?? 0,
+            quality: "HD",
+            cast: [],
+            director: null,
+            is_published: true,
+            is_featured: false,
+            is_trending: false,
+            media_type: isTV ? "tv" : "movie",
+            popularity: item.popularity || null,
+            first_air_date: releaseDate || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+        });
+
+        // As a last step, hydrate media refs and return
+        return hydrate(list as unknown as Movie[]);
       } catch (err) {
-        // Fallback to Supabase if live TMDB fetch encounters an issue
+        // Fall back to DB on any error
         const { data, error } = await supabase
           .from("movies")
           .select(MOVIE_FIELDS)
