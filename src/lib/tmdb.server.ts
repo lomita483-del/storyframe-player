@@ -62,34 +62,132 @@ async function genreMap(kind: "movie" | "tv") {
 
 /* ------------------------- catalogue sync (shallow) ------------------------- */
 
+type ListSpec = {
+  path: string;
+  type: "movie" | "tv";
+  trending?: boolean;
+  pages?: number;
+  params?: Record<string, string>;
+  kind?: string;
+};
+
+/** Every catalogue surface we import, so the library covers all categories. */
+function catalogueLists(): ListSpec[] {
+  const today = new Date().toISOString().slice(0, 10);
+  return [
+    { path: "/trending/movie/day", type: "movie", trending: true, pages: 2 },
+    { path: "/trending/tv/day", type: "tv", trending: true, pages: 2 },
+    { path: "/movie/popular", type: "movie", pages: 5 },
+    { path: "/tv/popular", type: "tv", pages: 5 },
+    { path: "/movie/top_rated", type: "movie", pages: 5 },
+    { path: "/tv/top_rated", type: "tv", pages: 5 },
+    { path: "/movie/now_playing", type: "movie", pages: 3 },
+    { path: "/movie/upcoming", type: "movie", pages: 3 },
+    { path: "/tv/on_the_air", type: "tv", pages: 3 },
+    { path: "/tv/airing_today", type: "tv", pages: 2 },
+    // Upcoming shows / seasons still to air
+    {
+      path: "/discover/tv",
+      type: "tv",
+      pages: 2,
+      params: { "first_air_date.gte": today, sort_by: "popularity.desc" },
+    },
+    // Anime (Japanese animation)
+    {
+      path: "/discover/tv",
+      type: "tv",
+      pages: 4,
+      kind: "anime",
+      params: { with_genres: "16", with_original_language: "ja", sort_by: "popularity.desc" },
+    },
+    {
+      path: "/discover/movie",
+      type: "movie",
+      pages: 3,
+      kind: "anime",
+      params: { with_genres: "16", with_original_language: "ja", sort_by: "popularity.desc" },
+    },
+    // Cartoons / animation for all ages
+    {
+      path: "/discover/tv",
+      type: "tv",
+      pages: 3,
+      kind: "cartoon",
+      params: { with_genres: "16", without_original_language: "ja", sort_by: "popularity.desc" },
+    },
+    {
+      path: "/discover/movie",
+      type: "movie",
+      pages: 3,
+      kind: "cartoon",
+      params: { with_genres: "16", without_original_language: "ja", sort_by: "popularity.desc" },
+    },
+    // Broad genre coverage so every category has titles
+    ...["28", "12", "35", "80", "99", "18", "10751", "14", "36", "27", "10402", "9648", "10749", "878", "53", "10752", "37"].flatMap(
+      (genre): ListSpec[] => [
+        {
+          path: "/discover/movie",
+          type: "movie",
+          pages: 2,
+          params: { with_genres: genre, sort_by: "popularity.desc" },
+        },
+      ],
+    ),
+    ...["10759", "18", "35", "80", "99", "10751", "10765", "9648", "10768"].map(
+      (genre): ListSpec => ({
+        path: "/discover/tv",
+        type: "tv",
+        pages: 2,
+        params: { with_genres: genre, sort_by: "popularity.desc" },
+      }),
+    ),
+  ];
+}
+
+function classify(
+  type: "movie" | "tv",
+  hint: string | undefined,
+  item: TmdbItem & { original_language?: string },
+) {
+  if (hint) return hint;
+  if (item.genre_ids?.includes(16)) {
+    return item.original_language === "ja" ? "anime" : "cartoon";
+  }
+  return type === "tv" ? "tv" : "movie";
+}
+
 export async function syncCatalogue(): Promise<SyncResult> {
   const [movieGenres, tvGenres] = await Promise.all([genreMap("movie"), genreMap("tv")]);
 
-  const lists: { path: string; type: "movie" | "tv"; trending: boolean }[] = [
-    { path: "/trending/movie/day", type: "movie", trending: true },
-    { path: "/trending/tv/week", type: "tv", trending: true },
-    { path: "/movie/popular", type: "movie", trending: false },
-    { path: "/tv/popular", type: "tv", trending: false },
-    { path: "/movie/top_rated", type: "movie", trending: false },
-    { path: "/tv/top_rated", type: "tv", trending: false },
-    { path: "/movie/now_playing", type: "movie", trending: false },
-    { path: "/tv/on_the_air", type: "tv", trending: false },
-  ];
-
-  type Candidate = { item: TmdbItem; type: "movie" | "tv"; trending: boolean };
+  type Candidate = {
+    item: TmdbItem & { original_language?: string };
+    type: "movie" | "tv";
+    trending: boolean;
+    kind: string;
+  };
   const found = new Map<string, Candidate>();
 
-  for (const list of lists) {
-    for (const page of ["1", "2"]) {
-      const data = await tmdb<{ results: TmdbItem[] }>(list.path, { page });
-      for (const item of data.results ?? []) {
-        const key = `${list.type}:${item.id}`;
-        const prev = found.get(key);
-        found.set(key, {
-          item,
-          type: list.type,
-          trending: list.trending || Boolean(prev?.trending),
-        });
+  for (const list of catalogueLists()) {
+    for (let page = 1; page <= (list.pages ?? 1); page += 1) {
+      try {
+        const data = await tmdb<{ results: (TmdbItem & { original_language?: string })[] }>(
+          list.path,
+          { ...(list.params ?? {}), page: String(page) },
+        );
+        for (const item of data.results ?? []) {
+          const key = `${list.type}:${item.id}`;
+          const prev = found.get(key);
+          found.set(key, {
+            item,
+            type: list.type,
+            trending: Boolean(list.trending) || Boolean(prev?.trending),
+            kind: prev?.kind && prev.kind !== "movie" && prev.kind !== "tv"
+              ? prev.kind
+              : classify(list.type, list.kind, item),
+          });
+        }
+      } catch {
+        /* one list failing must not abort the whole sync */
       }
     }
   }
@@ -97,21 +195,29 @@ export async function syncCatalogue(): Promise<SyncResult> {
   const candidates = [...found.values()];
   const ids = candidates.map((c) => c.item.id);
 
-  const { data: existingRows, error: existingError } = await supabaseAdmin
-    .from("movies")
-    .select("id,tmdb_id,media_type")
-    .in("tmdb_id", ids.length ? ids : [0]);
-  if (existingError) throw existingError;
-
   const existing = new Map<string, string>();
-  for (const row of existingRows ?? []) {
-    if (row.tmdb_id != null) existing.set(`${row.media_type}:${row.tmdb_id}`, row.id);
+  for (let i = 0; i < ids.length; i += 400) {
+    const chunk = ids.slice(i, i + 400);
+    const { data: existingRows, error: existingError } = await supabaseAdmin
+      .from("movies")
+      .select("id,tmdb_id,media_type")
+      .in("tmdb_id", chunk.length ? chunk : [0]);
+    if (existingError) throw existingError;
+    for (const row of existingRows ?? []) {
+      if (row.tmdb_id != null) existing.set(`${row.media_type}:${row.tmdb_id}`, row.id);
+    }
   }
+
+  // Trending must reflect *today* — clear the old flags first.
+  await supabaseAdmin
+    .from("movies")
+    .update({ is_trending: false } as never)
+    .eq("is_trending", true);
 
   const toInsert: Record<string, unknown>[] = [];
   const toUpdate: { id: string; patch: Record<string, unknown> }[] = [];
 
-  for (const { item, type, trending } of candidates) {
+  for (const { item, type, trending, kind } of candidates) {
     const title = item.title ?? item.name ?? "Untitled";
     const genres = type === "movie" ? movieGenres : tvGenres;
     const genre = item.genre_ids?.length ? (genres.get(item.genre_ids[0]!) ?? null) : null;
@@ -125,6 +231,8 @@ export async function syncCatalogue(): Promise<SyncResult> {
       backdrop_url: img(item.backdrop_path, "w1280"),
       genre,
       release_year: Number.isFinite(year) ? year : null,
+      release_date: date || null,
+      content_kind: kind,
       rating: item.vote_average != null ? Math.round(item.vote_average * 10) / 10 : null,
       popularity: item.popularity ?? null,
       first_air_date: type === "tv" && date ? date : null,
@@ -166,6 +274,7 @@ export async function syncCatalogue(): Promise<SyncResult> {
 
   return { inserted: toInsert.length, updated: toUpdate.length };
 }
+
 
 /** Runs a sync while recording it in sync_runs, and never twice at once. */
 export async function runSync(options: { force?: boolean; maxAgeHours?: number } = {}) {
