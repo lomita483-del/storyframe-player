@@ -17,6 +17,7 @@ import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedWatchlistRouteImport } from './routes/_authenticated/watchlist'
 import { Route as MovieSlugRouteImport } from './routes/movie.$slug'
+import { Route as WatchIndexRouteImport } from './routes/watch.index'
 import { Route as WatchSlugRouteImport } from './routes/watch.$slug'
 import { Route as AuthenticatedAccountIndexRouteImport } from './routes/_authenticated/account.index'
 import { Route as AuthenticatedAccountActivityRouteImport } from './routes/_authenticated/account.activity'
@@ -70,6 +71,11 @@ const AuthenticatedWatchlistRoute = AuthenticatedWatchlistRouteImport.update({
 const MovieSlugRoute = MovieSlugRouteImport.update({
   id: '/movie/$slug',
   path: '/movie/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WatchIndexRoute = WatchIndexRouteImport.update({
+  id: '/watch/',
+  path: '/watch/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WatchSlugRoute = WatchSlugRouteImport.update({
@@ -168,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/watchlist': typeof AuthenticatedWatchlistRoute
   '/movie/$slug': typeof MovieSlugRoute
   '/watch/$slug': typeof WatchSlugRoute
+  '/watch/': typeof WatchIndexRoute
   '/account/activity': typeof AuthenticatedAccountActivityRoute
   '/account/downloads': typeof AuthenticatedAccountDownloadsRoute
   '/account/feedback': typeof AuthenticatedAccountFeedbackRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/watchlist': typeof AuthenticatedWatchlistRoute
   '/movie/$slug': typeof MovieSlugRoute
   '/watch/$slug': typeof WatchSlugRoute
+  '/watch': typeof WatchIndexRoute
   '/account/activity': typeof AuthenticatedAccountActivityRoute
   '/account/downloads': typeof AuthenticatedAccountDownloadsRoute
   '/account/feedback': typeof AuthenticatedAccountFeedbackRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/_authenticated/watchlist': typeof AuthenticatedWatchlistRoute
   '/movie/$slug': typeof MovieSlugRoute
   '/watch/$slug': typeof WatchSlugRoute
+  '/watch/': typeof WatchIndexRoute
   '/_authenticated/account/activity': typeof AuthenticatedAccountActivityRoute
   '/_authenticated/account/downloads': typeof AuthenticatedAccountDownloadsRoute
   '/_authenticated/account/feedback': typeof AuthenticatedAccountFeedbackRoute
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/movie/$slug'
     | '/watch/$slug'
+    | '/watch/'
     | '/account/activity'
     | '/account/downloads'
     | '/account/feedback'
@@ -264,6 +274,7 @@ export interface FileRouteTypes {
     | '/watchlist'
     | '/movie/$slug'
     | '/watch/$slug'
+    | '/watch'
     | '/account/activity'
     | '/account/downloads'
     | '/account/feedback'
@@ -289,6 +300,7 @@ export interface FileRouteTypes {
     | '/_authenticated/watchlist'
     | '/movie/$slug'
     | '/watch/$slug'
+    | '/watch/'
     | '/_authenticated/account/activity'
     | '/_authenticated/account/downloads'
     | '/_authenticated/account/feedback'
@@ -312,6 +324,7 @@ export interface RootRouteChildren {
   SearchRoute: typeof SearchRoute
   MovieSlugRoute: typeof MovieSlugRoute
   WatchSlugRoute: typeof WatchSlugRoute
+  WatchIndexRoute: typeof WatchIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -370,6 +383,13 @@ declare module '@tanstack/react-router' {
       path: '/movie/$slug'
       fullPath: '/movie/$slug'
       preLoaderRoute: typeof MovieSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/watch/': {
+      id: '/watch/'
+      path: '/watch'
+      fullPath: '/watch/'
+      preLoaderRoute: typeof WatchIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/watch/$slug': {
@@ -548,6 +568,7 @@ const rootRouteChildren: RootRouteChildren = {
   SearchRoute: SearchRoute,
   MovieSlugRoute: MovieSlugRoute,
   WatchSlugRoute: WatchSlugRoute,
+  WatchIndexRoute: WatchIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

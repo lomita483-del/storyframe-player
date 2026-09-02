@@ -179,7 +179,7 @@ export async function runSync(options: { force?: boolean; maxAgeHours?: number }
 
   const last = recent?.[0];
   if (last) {
-    const age = Date.now() - new Date(last.started_at).getTime();
+    const age = Date.now() - new Date(last.started_at ?? 0).getTime();
     if (last.status === "running" && age < 10 * 60_000) {
       return { inserted: 0, updated: 0, skipped: "already-running" } satisfies SyncResult;
     }
