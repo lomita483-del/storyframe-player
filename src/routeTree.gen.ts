@@ -17,6 +17,7 @@ import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedWatchlistRouteImport } from './routes/_authenticated/watchlist'
 import { Route as MovieSlugRouteImport } from './routes/movie.$slug'
+import { Route as UsersDashboardRouteImport } from './routes/users/dashboard'
 import { Route as WatchIndexRouteImport } from './routes/watch.index'
 import { Route as WatchSlugRouteImport } from './routes/watch.$slug'
 import { Route as AuthenticatedAccountIndexRouteImport } from './routes/_authenticated/account.index'
@@ -71,6 +72,11 @@ const AuthenticatedWatchlistRoute = AuthenticatedWatchlistRouteImport.update({
 const MovieSlugRoute = MovieSlugRouteImport.update({
   id: '/movie/$slug',
   path: '/movie/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsersDashboardRoute = UsersDashboardRouteImport.update({
+  id: '/users/dashboard',
+  path: '/users/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WatchIndexRoute = WatchIndexRouteImport.update({
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/watchlist': typeof AuthenticatedWatchlistRoute
   '/movie/$slug': typeof MovieSlugRoute
+  '/users/dashboard': typeof UsersDashboardRoute
   '/watch/$slug': typeof WatchSlugRoute
   '/watch/': typeof WatchIndexRoute
   '/account/activity': typeof AuthenticatedAccountActivityRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/search': typeof SearchRoute
   '/watchlist': typeof AuthenticatedWatchlistRoute
   '/movie/$slug': typeof MovieSlugRoute
+  '/users/dashboard': typeof UsersDashboardRoute
   '/watch/$slug': typeof WatchSlugRoute
   '/watch': typeof WatchIndexRoute
   '/account/activity': typeof AuthenticatedAccountActivityRoute
@@ -223,6 +231,7 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/watchlist': typeof AuthenticatedWatchlistRoute
   '/movie/$slug': typeof MovieSlugRoute
+  '/users/dashboard': typeof UsersDashboardRoute
   '/watch/$slug': typeof WatchSlugRoute
   '/watch/': typeof WatchIndexRoute
   '/_authenticated/account/activity': typeof AuthenticatedAccountActivityRoute
@@ -250,6 +259,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/watchlist'
     | '/movie/$slug'
+    | '/users/dashboard'
     | '/watch/$slug'
     | '/watch/'
     | '/account/activity'
@@ -273,6 +283,7 @@ export interface FileRouteTypes {
     | '/search'
     | '/watchlist'
     | '/movie/$slug'
+    | '/users/dashboard'
     | '/watch/$slug'
     | '/watch'
     | '/account/activity'
@@ -299,6 +310,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/watchlist'
     | '/movie/$slug'
+    | '/users/dashboard'
     | '/watch/$slug'
     | '/watch/'
     | '/_authenticated/account/activity'
@@ -323,6 +335,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   SearchRoute: typeof SearchRoute
   MovieSlugRoute: typeof MovieSlugRoute
+  UsersDashboardRoute: typeof UsersDashboardRoute
   WatchSlugRoute: typeof WatchSlugRoute
   WatchIndexRoute: typeof WatchIndexRoute
 }
@@ -383,6 +396,13 @@ declare module '@tanstack/react-router' {
       path: '/movie/$slug'
       fullPath: '/movie/$slug'
       preLoaderRoute: typeof MovieSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/users/dashboard': {
+      id: '/users/dashboard'
+      path: '/users/dashboard'
+      fullPath: '/users/dashboard'
+      preLoaderRoute: typeof UsersDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/watch/': {
@@ -567,6 +587,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   SearchRoute: SearchRoute,
   MovieSlugRoute: MovieSlugRoute,
+  UsersDashboardRoute: UsersDashboardRoute,
   WatchSlugRoute: WatchSlugRoute,
   WatchIndexRoute: WatchIndexRoute,
 }
