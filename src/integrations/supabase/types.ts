@@ -119,10 +119,49 @@ export type Database = {
         }
         Relationships: []
       }
+      movie_ratings: {
+        Row: {
+          created_at: string
+          id: string
+          movie_id: string
+          rating: number
+          review: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          movie_id: string
+          rating: number
+          review?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          movie_id?: string
+          rating?: number
+          review?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movie_ratings_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movies: {
         Row: {
           backdrop_url: string | null
           cast: string[] | null
+          content_kind: string
           created_at: string
           created_by: string | null
           description: string | null
@@ -146,6 +185,7 @@ export type Database = {
           provider_asset_id: string | null
           quality: string
           rating: number | null
+          release_date: string | null
           release_year: number | null
           runtime: number | null
           slug: string
@@ -161,6 +201,7 @@ export type Database = {
         Insert: {
           backdrop_url?: string | null
           cast?: string[] | null
+          content_kind?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -184,6 +225,7 @@ export type Database = {
           provider_asset_id?: string | null
           quality?: string
           rating?: number | null
+          release_date?: string | null
           release_year?: number | null
           runtime?: number | null
           slug: string
@@ -199,6 +241,7 @@ export type Database = {
         Update: {
           backdrop_url?: string | null
           cast?: string[] | null
+          content_kind?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -222,6 +265,7 @@ export type Database = {
           provider_asset_id?: string | null
           quality?: string
           rating?: number | null
+          release_date?: string | null
           release_year?: number | null
           runtime?: number | null
           slug?: string
@@ -242,6 +286,8 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          is_ad_free: boolean
+          is_blocked: boolean
           updated_at: string
         }
         Insert: {
@@ -249,6 +295,8 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id: string
+          is_ad_free?: boolean
+          is_blocked?: boolean
           updated_at?: string
         }
         Update: {
@@ -256,6 +304,8 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          is_ad_free?: boolean
+          is_blocked?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -286,6 +336,32 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      ratings: {
+        Row: {
+          id: number
+          movie_id: string
+          rating: number
+        }
+        Insert: {
+          id?: number
+          movie_id: string
+          rating: number
+        }
+        Update: {
+          id?: number
+          movie_id?: string
+          rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratings_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       seasons: {
         Row: {
